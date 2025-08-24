@@ -11,6 +11,7 @@ import {
 @Table({
   tableName: 'companies',
   timestamps: true,
+  underscored: true,
 })
 export class Company extends Model {
   @Column({
