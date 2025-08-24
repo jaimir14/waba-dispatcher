@@ -82,8 +82,9 @@ export class WebhookService {
       // Process incoming message for conversation flow
       if (message.type === 'text' && message.text?.body) {
         try {
-          // Extract company ID from metadata (you may need to adjust this based on your webhook structure)
-          const companyId = value.metadata?.phone_number_id || 'default';
+          // Map phone number ID to company ID
+          // For now, use a default company ID since we don't have a mapping
+          const companyId = '550e8400-e29b-41d4-a716-446655440000'; // testcompany
 
           await this.conversationService.processIncomingMessage(
             message.from,
@@ -98,7 +99,7 @@ export class WebhookService {
       } else {
         // Handle missing or invalid message content
         try {
-          const companyId = value.metadata?.phone_number_id || 'default';
+          const companyId = '550e8400-e29b-41d4-a716-446655440000'; // testcompany
 
           await this.conversationService.processIncomingMessage(
             message.from,
