@@ -56,7 +56,8 @@ export class WhatsAppService {
     );
 
     // Get company credentials
-    const company = await this.companyRepository.findById(companyId);
+    console.log('companyId', companyId);
+    const company = await this.companyRepository.findByName(companyId);
     if (!company) {
       throw new BadRequestException(`Company ${companyId} not found`);
     }
@@ -67,7 +68,7 @@ export class WhatsAppService {
 
     // Create message record in database
     const message = await this.messageRepository.create({
-      company_id: companyId,
+      company_id: company.id,
       to_phone_number: createMessageDto.to,
       template_name: createMessageDto.template_name,
       parameters: createMessageDto.parameters || [],
@@ -125,7 +126,7 @@ export class WhatsAppService {
 
     // Add parameters if provided
     if (createMessageDto.parameters && createMessageDto.parameters.length > 0) {
-      template.components = createMessageDto.parameters.map(param => {
+      template.components = createMessageDto.parameters.map((param) => {
         if (param.type === 'text') {
           return new TextParameter({ text: param.text });
         }
@@ -298,7 +299,7 @@ export class WhatsAppService {
         createMessageDto.to = recipient;
         createMessageDto.template_name = sendMessageDto.templateName;
         createMessageDto.parameters = sendMessageDto.parameters?.map(
-          param => new TextParameter({ text: param }),
+          (param) => new TextParameter({ text: param }),
         );
 
         // Send message to individual recipient
@@ -429,7 +430,7 @@ export class WhatsAppService {
     );
 
     try {
-      const jobs = sendMessageDto.recipients.map(recipient => ({
+      const jobs = sendMessageDto.recipients.map((recipient) => ({
         data: {
           companyId,
           to: recipient,
@@ -442,7 +443,7 @@ export class WhatsAppService {
       await this.queueService.addBulkWhatsAppSendJobs(jobs);
 
       const results: MessageResultDto[] = sendMessageDto.recipients.map(
-        recipient => ({
+        (recipient) => ({
           recipient,
           status: 'sent' as const,
           messageId: 'queued',
@@ -464,7 +465,7 @@ export class WhatsAppService {
       this.logger.error(`Failed to bulk queue messages: ${error.message}`);
 
       const results: MessageResultDto[] = sendMessageDto.recipients.map(
-        recipient => ({
+        (recipient) => ({
           recipient,
           status: 'failed' as const,
           error: 'Failed to queue message',
@@ -527,7 +528,7 @@ export class WhatsAppService {
     createMessageDto.to = startConversationDto.to;
     createMessageDto.template_name = startConversationDto.templateName;
     createMessageDto.parameters = startConversationDto.parameters?.map(
-      param => new TextParameter({ text: param }),
+      (param) => new TextParameter({ text: param }),
     );
 
     try {

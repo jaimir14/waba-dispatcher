@@ -15,6 +15,12 @@ export class CompanyRepository {
     });
   }
 
+  async findByName(name: string): Promise<Company | null> {
+    return this.companyModel.findOne({
+      where: { name, isActive: true },
+    });
+  }
+
   async findById(id: string): Promise<Company | null> {
     return this.companyModel.findByPk(id);
   }
