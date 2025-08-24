@@ -126,15 +126,23 @@ export class WhatsAppService {
 
     // Add parameters if provided
     if (createMessageDto.parameters && createMessageDto.parameters.length > 0) {
-      template.components = createMessageDto.parameters.map((param) => {
-        if (param.type === 'text') {
-          return new TextParameter({ text: param.text });
-        }
-        // For now, only text parameters are supported
-        throw new BadRequestException(
-          `Parameter type ${param.type} is not supported`,
-        );
-      });
+      template.components = [
+        {
+          type: 'body',
+          parameters: createMessageDto.parameters.map((param) => {
+            if (param.type === 'text') {
+              return {
+                type: 'text',
+                text: param.text,
+              };
+            }
+            // For now, only text parameters are supported
+            throw new BadRequestException(
+              `Parameter type ${param.type} is not supported`,
+            );
+          }),
+        },
+      ];
     }
 
     return {

@@ -38,6 +38,15 @@ export class TextParameter implements BaseParameter {
 // Union type for all parameters
 export type TemplateParameter = TextParameter;
 
+// Template component interface
+export interface TemplateComponent {
+  type: string;
+  parameters?: Array<{
+    type: string;
+    text: string;
+  }>;
+}
+
 // Template DTO
 export class TemplateDto {
   @IsString()
@@ -52,8 +61,7 @@ export class TemplateDto {
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  components?: TemplateParameter[];
+  components?: TemplateComponent[];
 
   constructor(name: string, policy?: string) {
     this.name = name;
