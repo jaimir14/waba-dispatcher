@@ -61,12 +61,16 @@ module.exports = {
     await queryInterface.addIndex('conversations', ['phone_number']);
     await queryInterface.addIndex('conversations', ['is_active']);
     await queryInterface.addIndex('conversations', ['last_message_at']);
-    
+
     // Add unique constraint for active conversations per company/phone
-    await queryInterface.addIndex('conversations', ['company_id', 'phone_number', 'is_active'], {
-      unique: true,
-      where: { is_active: true },
-    });
+    await queryInterface.addIndex(
+      'conversations',
+      ['company_id', 'phone_number', 'is_active'],
+      {
+        unique: true,
+        where: { is_active: true },
+      },
+    );
   },
 
   async down(queryInterface, Sequelize) {

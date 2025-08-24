@@ -171,7 +171,7 @@ describe('QueueService', () => {
     });
 
     it('should handle high priority bulk jobs with staggered delays', async () => {
-      const highPriorityJobs = jobs.map((job) => ({
+      const highPriorityJobs = jobs.map(job => ({
         ...job,
         data: { ...job.data, priority: 1 },
       }));

@@ -106,35 +106,40 @@ describe('AppService', () => {
       expect(result.status).toBe('success');
       expect(result.message).toContain('WhatsApp API connection successful');
       expect(result.message).toContain('Phone number verified');
-      expect(mockHttpService.get).toHaveBeenCalledWith('/test_phone_number_id', {
-        params: {
-          access_token: 'test_access_token',
-          fields: 'id,name,code_verification_status,quality_rating',
+      expect(mockHttpService.get).toHaveBeenCalledWith(
+        '/test_phone_number_id',
+        {
+          params: {
+            access_token: 'test_access_token',
+            fields: 'id,name,code_verification_status,quality_rating',
+          },
         },
-      });
+      );
     });
 
     it('should return error status when configuration is missing', async () => {
       // Create a new module with missing configuration
-      const moduleWithMissingConfig: TestingModule = await Test.createTestingModule({
-        providers: [
-          AppService,
-          {
-            provide: HttpService,
-            useValue: mockHttpService,
-          },
-          {
-            provide: ConfigService,
-            useValue: {
-              ...mockConfigService,
-              metaAccessToken: '',
-              metaPhoneNumberId: '',
-            } as any,
-          },
-        ],
-      }).compile();
+      const moduleWithMissingConfig: TestingModule =
+        await Test.createTestingModule({
+          providers: [
+            AppService,
+            {
+              provide: HttpService,
+              useValue: mockHttpService,
+            },
+            {
+              provide: ConfigService,
+              useValue: {
+                ...mockConfigService,
+                metaAccessToken: '',
+                metaPhoneNumberId: '',
+              } as any,
+            },
+          ],
+        }).compile();
 
-      const serviceWithMissingConfig = moduleWithMissingConfig.get<AppService>(AppService);
+      const serviceWithMissingConfig =
+        moduleWithMissingConfig.get<AppService>(AppService);
       const result = await serviceWithMissingConfig.testWhatsAppConnection();
 
       expect(result.status).toBe('error');
@@ -197,7 +202,9 @@ describe('AppService', () => {
       const result = await service.testWhatsAppConnection();
 
       expect(result.status).toBe('error');
-      expect(result.message).toContain('Connection refused: Check network connectivity');
+      expect(result.message).toContain(
+        'Connection refused: Check network connectivity',
+      );
     });
 
     it('should return error status when API response is invalid', async () => {

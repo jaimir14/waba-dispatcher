@@ -39,12 +39,12 @@ export class HttpService {
   private setupRetryLogic(): void {
     axiosRetry(this.axiosInstance, {
       retries: 3,
-      retryDelay: (retryCount) => {
+      retryDelay: retryCount => {
         const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
         this.logger.warn(`Retrying request (${retryCount}/3) in ${delay}ms`);
         return delay;
       },
-      retryCondition: (error) => {
+      retryCondition: error => {
         // Retry on network errors, 5xx server errors, and rate limiting
         return (
           axiosRetry.isNetworkOrIdempotentRequestError(error) ||
@@ -80,7 +80,7 @@ export class HttpService {
 
         return config;
       },
-      (error) => {
+      error => {
         this.logger.error('❌ Request interceptor error:', error);
         return Promise.reject(error);
       },
@@ -105,7 +105,7 @@ export class HttpService {
 
         return response;
       },
-      (error) => {
+      error => {
         const { requestId, startTime } =
           (error.config as ExtendedAxiosRequestConfig)?.metadata || {};
         const duration = startTime ? Date.now() - startTime : 0;

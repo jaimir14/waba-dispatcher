@@ -125,7 +125,7 @@ export class WhatsAppService {
 
     // Add parameters if provided
     if (createMessageDto.parameters && createMessageDto.parameters.length > 0) {
-      template.components = createMessageDto.parameters.map((param) => {
+      template.components = createMessageDto.parameters.map(param => {
         if (param.type === 'text') {
           return new TextParameter({ text: param.text });
         }
@@ -298,7 +298,7 @@ export class WhatsAppService {
         createMessageDto.to = recipient;
         createMessageDto.template_name = sendMessageDto.templateName;
         createMessageDto.parameters = sendMessageDto.parameters?.map(
-          (param) => new TextParameter({ text: param }),
+          param => new TextParameter({ text: param }),
         );
 
         // Send message to individual recipient
@@ -429,7 +429,7 @@ export class WhatsAppService {
     );
 
     try {
-      const jobs = sendMessageDto.recipients.map((recipient) => ({
+      const jobs = sendMessageDto.recipients.map(recipient => ({
         data: {
           companyId,
           to: recipient,
@@ -442,7 +442,7 @@ export class WhatsAppService {
       await this.queueService.addBulkWhatsAppSendJobs(jobs);
 
       const results: MessageResultDto[] = sendMessageDto.recipients.map(
-        (recipient) => ({
+        recipient => ({
           recipient,
           status: 'sent' as const,
           messageId: 'queued',
@@ -464,7 +464,7 @@ export class WhatsAppService {
       this.logger.error(`Failed to bulk queue messages: ${error.message}`);
 
       const results: MessageResultDto[] = sendMessageDto.recipients.map(
-        (recipient) => ({
+        recipient => ({
           recipient,
           status: 'failed' as const,
           error: 'Failed to queue message',
@@ -527,12 +527,15 @@ export class WhatsAppService {
     createMessageDto.to = startConversationDto.to;
     createMessageDto.template_name = startConversationDto.templateName;
     createMessageDto.parameters = startConversationDto.parameters?.map(
-      (param) => new TextParameter({ text: param }),
+      param => new TextParameter({ text: param }),
     );
 
     try {
       // Send template message
-      const message = await this.sendTemplateMessage(companyId, createMessageDto);
+      const message = await this.sendTemplateMessage(
+        companyId,
+        createMessageDto,
+      );
 
       this.logger.log(
         `Conversation started successfully. Conversation ID: ${conversation[0].id}, Message ID: ${message.id}`,
@@ -598,7 +601,8 @@ export class WhatsAppService {
     if (conversation.current_step !== 'confirmed') {
       return {
         status: 'conversation_not_confirmed',
-        message: 'Conversation is not confirmed. Only confirmed conversations can receive text messages.',
+        message:
+          'Conversation is not confirmed. Only confirmed conversations can receive text messages.',
       };
     }
 

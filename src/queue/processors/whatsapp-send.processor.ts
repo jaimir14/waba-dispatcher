@@ -29,7 +29,7 @@ export class WhatsAppSendProcessor {
       createMessageDto.to = to;
       createMessageDto.template_name = templateName;
       createMessageDto.parameters = parameters?.map(
-        (param) => new TextParameter({ text: param }),
+        param => new TextParameter({ text: param }),
       );
 
       // Send the message

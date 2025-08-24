@@ -2,87 +2,87 @@
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up (queryInterface, Sequelize) {
+  async up(queryInterface, Sequelize) {
     await queryInterface.createTable('messages', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
       },
       company_id: {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
           model: 'companies',
-          key: 'id'
+          key: 'id',
         },
         onUpdate: 'CASCADE',
-        onDelete: 'CASCADE'
+        onDelete: 'CASCADE',
       },
       whatsapp_message_id: {
         type: Sequelize.STRING(255),
         allowNull: true,
-        comment: 'WhatsApp Cloud API message ID'
+        comment: 'WhatsApp Cloud API message ID',
       },
       to_phone_number: {
         type: Sequelize.STRING(20),
         allowNull: false,
-        comment: 'Recipient phone number'
+        comment: 'Recipient phone number',
       },
       template_name: {
         type: Sequelize.STRING(100),
         allowNull: true,
-        comment: 'WhatsApp template name'
+        comment: 'WhatsApp template name',
       },
       parameters: {
         type: Sequelize.JSON,
         allowNull: true,
-        comment: 'Template parameters as JSON'
+        comment: 'Template parameters as JSON',
       },
       status: {
         type: Sequelize.ENUM('pending', 'sent', 'delivered', 'read', 'failed'),
         allowNull: false,
-        defaultValue: 'pending'
+        defaultValue: 'pending',
       },
       error_code: {
         type: Sequelize.STRING(50),
         allowNull: true,
-        comment: 'WhatsApp API error code if failed'
+        comment: 'WhatsApp API error code if failed',
       },
       error_message: {
         type: Sequelize.TEXT,
         allowNull: true,
-        comment: 'Error description'
+        comment: 'Error description',
       },
       pricing: {
         type: Sequelize.JSON,
         allowNull: true,
-        comment: 'WhatsApp pricing information'
+        comment: 'WhatsApp pricing information',
       },
       sent_at: {
         type: Sequelize.DATE,
         allowNull: true,
-        comment: 'When message was sent to WhatsApp API'
+        comment: 'When message was sent to WhatsApp API',
       },
       delivered_at: {
         type: Sequelize.DATE,
         allowNull: true,
-        comment: 'When message was delivered to recipient'
+        comment: 'When message was delivered to recipient',
       },
       read_at: {
         type: Sequelize.DATE,
         allowNull: true,
-        comment: 'When message was read by recipient'
+        comment: 'When message was read by recipient',
       },
       created_at: {
         allowNull: false,
-        type: Sequelize.DATE
+        type: Sequelize.DATE,
       },
       updated_at: {
         allowNull: false,
-        type: Sequelize.DATE
-      }
+        type: Sequelize.DATE,
+      },
     });
 
     // Add indexes for performance
@@ -93,7 +93,7 @@ module.exports = {
     await queryInterface.addIndex('messages', ['created_at']);
   },
 
-  async down (queryInterface, Sequelize) {
+  async down(queryInterface, Sequelize) {
     await queryInterface.dropTable('messages');
-  }
+  },
 };
