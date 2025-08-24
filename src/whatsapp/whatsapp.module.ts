@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bull';
 import { WhatsAppService } from './whatsapp.service';
 import { Message } from '../database/models/message.model';
 import { Company } from '../database/models/company.model';
+import { Conversation } from '../database/models/conversation.model';
 import { MessageRepository } from '../database/repositories/message.repository';
 import { CompanyRepository } from '../database/repositories/company.repository';
 import { ConfigModule, ConfigService } from '../config';
@@ -15,7 +16,7 @@ import { WhatsAppSendProcessor } from '../queue/processors/whatsapp-send.process
   imports: [
     ConfigModule,
     HttpClientModule,
-    SequelizeModule.forFeature([Message, Company]),
+    SequelizeModule.forFeature([Message, Company, Conversation]),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

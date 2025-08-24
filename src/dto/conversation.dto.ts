@@ -33,6 +33,7 @@ export class GetConversationDto {
 
 export class GetConversationResponseDto {
   status: 'success' | 'not_found';
+  message?: string;
   conversation?: {
     id: string;
     phoneNumber: string;

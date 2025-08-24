@@ -10,6 +10,8 @@ import { HttpService } from '../http/http.service';
 import { MessageRepository } from '../database/repositories/message.repository';
 import { CompanyRepository } from '../database/repositories/company.repository';
 import { Message, MessageStatus } from '../database/models/message.model';
+import { Conversation } from '../database/models/conversation.model';
+import { InjectModel } from '@nestjs/sequelize';
 import {
   CreateTemplateMessageDto,
   WhatsAppTemplateMessageDto,
@@ -36,6 +38,8 @@ export class WhatsAppService {
     private readonly httpService: HttpService,
     private readonly messageRepository: MessageRepository,
     private readonly companyRepository: CompanyRepository,
+    @InjectModel(Conversation)
+    private readonly conversationModel: typeof Conversation,
     @Inject(forwardRef(() => QueueService))
     private readonly queueService: QueueService,
   ) {}
@@ -497,7 +501,7 @@ export class WhatsAppService {
     }
 
     // Create or get conversation
-    const conversation = await this.messageRepository.sequelize.models.Conversation.findOrCreate({
+    const conversation = await this.conversationModel.findOrCreate({
       where: {
         company_id: companyId,
         phone_number: startConversationDto.to,
@@ -576,7 +580,7 @@ export class WhatsAppService {
     }
 
     // Check if conversation exists and is confirmed
-    const conversation = await this.messageRepository.sequelize.models.Conversation.findOne({
+    const conversation = await this.conversationModel.findOne({
       where: {
         company_id: companyId,
         phone_number: sendTextMessageDto.to,
@@ -685,7 +689,7 @@ export class WhatsAppService {
     }
 
     // Find conversation
-    const conversation = await this.messageRepository.sequelize.models.Conversation.findOne({
+    const conversation = await this.conversationModel.findOne({
       where: {
         company_id: companyId,
         phone_number: getConversationDto.phoneNumber,

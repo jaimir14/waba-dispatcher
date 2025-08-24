@@ -58,7 +58,7 @@ export class AppService {
 
       // Test 3: Check phone number status
       const phoneNumberData = response.data;
-      const statusChecks = [];
+      const statusChecks: string[] = [];
 
       if (phoneNumberData.verified_name) {
         statusChecks.push(`Name: ${phoneNumberData.verified_name}`);
