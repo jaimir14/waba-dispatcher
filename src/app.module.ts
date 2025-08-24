@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from './config';
@@ -23,6 +23,13 @@ import { ApiKeyMiddleware } from './middleware/api-key.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ApiKeyMiddleware).forRoutes('*');
+    consumer
+      .apply(ApiKeyMiddleware)
+      .exclude(
+        { path: 'webhook', method: RequestMethod.GET },
+        { path: 'webhook', method: RequestMethod.POST },
+        { path: 'webhook/health', method: RequestMethod.GET },
+      )
+      .forRoutes('*');
   }
 }
