@@ -21,6 +21,19 @@ export class ConversationRepository {
   }
 
   /**
+   * Find conversation by phone number (any company)
+   */
+  async findByPhoneNumber(phoneNumber: string): Promise<Conversation | null> {
+    return Conversation.findOne({
+      where: {
+        phone_number: phoneNumber,
+        is_active: true,
+      },
+      order: [['last_message_at', 'DESC']], // Get most recent
+    });
+  }
+
+  /**
    * Find or create conversation
    */
   async findOrCreate(

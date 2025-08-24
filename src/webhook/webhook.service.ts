@@ -6,6 +6,7 @@ import {
 import { MessageRepository } from '../database/repositories/message.repository';
 import { MessageStatus } from '../database/models/message.model';
 import { ConversationService } from '../conversation/conversation.service';
+import { ConversationRepository } from '../database/repositories/conversation.repository';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class WebhookService {
   constructor(
     private readonly messageRepository: MessageRepository,
     private readonly conversationService: ConversationService,
+    private readonly conversationRepository: ConversationRepository,
   ) {}
 
   /**
@@ -82,9 +84,25 @@ export class WebhookService {
       // Process incoming message for conversation flow
       if (message.type === 'text' && message.text?.body) {
         try {
-          // Map phone number ID to company ID
-          // For now, use a default company ID since we don't have a mapping
-          const companyId = '550e8400-e29b-41d4-a716-446655440000'; // testcompany
+          // Find existing conversation to get company ID
+          const conversation = await this.conversationRepository.findByPhoneNumber(
+            message.from
+          );
+          
+          let companyId: string;
+          if (conversation) {
+            // Use existing conversation's company
+            companyId = conversation.company_id;
+            this.logger.log(
+              `Found existing conversation for ${message.from} with company ${companyId}`,
+            );
+          } else {
+            // New conversation - use default company
+            companyId = '550e8400-e29b-41d4-a716-446655440000'; // testcompany
+            this.logger.log(
+              `New conversation for ${message.from}, using default company ${companyId}`,
+            );
+          }
 
           await this.conversationService.processIncomingMessage(
             message.from,
@@ -99,7 +117,12 @@ export class WebhookService {
       } else {
         // Handle missing or invalid message content
         try {
-          const companyId = '550e8400-e29b-41d4-a716-446655440000'; // testcompany
+          // Find existing conversation to get company ID
+          const conversation = await this.conversationRepository.findByPhoneNumber(
+            message.from
+          );
+          
+          const companyId = conversation?.company_id || '550e8400-e29b-41d4-a716-446655440000';
 
           await this.conversationService.processIncomingMessage(
             message.from,

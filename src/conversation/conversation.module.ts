@@ -8,6 +8,6 @@ import { WhatsAppModule } from '../whatsapp/whatsapp.module';
   imports: [WhatsAppModule],
   controllers: [ConversationController],
   providers: [ConversationService, ConversationRepository],
-  exports: [ConversationService],
+  exports: [ConversationService, ConversationRepository],
 })
 export class ConversationModule {}
