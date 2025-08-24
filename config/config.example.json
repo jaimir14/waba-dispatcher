@@ -1,0 +1,35 @@
+{
+  "development": {
+    "username": "your_username",
+    "password": "your_password",
+    "database": "waba_dispatcher",
+    "host": "your_host",
+    "port": 3306,
+    "dialect": "mysql",
+    "logging": true
+  },
+  "test": {
+    "username": "your_username",
+    "password": "your_password",
+    "database": "waba_dispatcher_test",
+    "host": "your_host",
+    "port": 3306,
+    "dialect": "mysql",
+    "logging": false
+  },
+  "production": {
+    "username": "your_username",
+    "password": "your_password",
+    "database": "waba_dispatcher",
+    "host": "your_host",
+    "port": 3306,
+    "dialect": "mysql",
+    "logging": false,
+    "pool": {
+      "max": 10,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
+  }
+}

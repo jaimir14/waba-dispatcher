@@ -3,6 +3,12 @@
 /node_modules
 /build
 /tmp
+/.vscode
+
+# Config files with sensitive data
+/config/config.json
+/config/*.json
+!/config/config.example.json
 
 # Logs
 logs
@@ -15,6 +21,7 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
+.env.local
 .env.development
 .env.test
 .env.production
