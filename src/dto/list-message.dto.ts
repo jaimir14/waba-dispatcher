@@ -18,8 +18,7 @@ export class NumberAmount {
 
 export class SendListMessageDto {
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => String)
+  @IsString({ each: true })
   recipients: string[];
 
   @IsString()
