@@ -70,7 +70,11 @@ export class WebhookController {
     });
 
     // Verify webhook signature for security (optional but recommended)
-    if (signature && this.configService.webhookSecret && this.configService.webhookSecret !== 'your_webhook_secret_here') {
+    if (
+      signature &&
+      this.configService.webhookSecret &&
+      this.configService.webhookSecret !== 'your_webhook_secret_here'
+    ) {
       const isValid = this.webhookService.verifyWebhookSignature(
         JSON.stringify(payload),
         signature,
@@ -78,11 +82,15 @@ export class WebhookController {
       );
 
       if (!isValid) {
-        this.logger.warn('Invalid webhook signature - continuing without verification');
+        this.logger.warn(
+          'Invalid webhook signature - continuing without verification',
+        );
         // Don't throw error, just log warning and continue
       }
     } else {
-      this.logger.warn('Webhook signature verification skipped - no valid secret configured');
+      this.logger.warn(
+        'Webhook signature verification skipped - no valid secret configured',
+      );
     }
 
     // Validate payload structure

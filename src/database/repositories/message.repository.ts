@@ -91,6 +91,19 @@ export class MessageRepository {
     );
   }
 
+  async updatePricing(
+    id: number,
+    pricing: any,
+  ): Promise<[number, Message[]]> {
+    return this.messageModel.update(
+      { pricing },
+      {
+        where: { id },
+        returning: true,
+      },
+    );
+  }
+
   async markAsFailed(
     id: number,
     errorCode: string,
@@ -150,5 +163,149 @@ export class MessageRepository {
     }
 
     return this.messageModel.count({ where });
+  }
+
+  async getMessagesByDay(
+    companyId: string,
+    date: string, // Format: "YYYY-MM-DD"
+    status?: string,
+  ): Promise<Message[]> {
+    // Parse date to get start and end of day
+    const [year, month, day] = date.split('-').map(Number);
+    const startDate = new Date(year, month - 1, day, 0, 0, 0, 0); // Start of day
+    const endDate = new Date(year, month - 1, day, 23, 59, 59, 999); // End of day
+
+    const where: any = {
+      company_id: companyId,
+      created_at: {
+        [Op.gte]: startDate,
+        [Op.lte]: endDate,
+      },
+    };
+
+    // Add status filter if provided
+    if (status) {
+      where.status = status;
+    }
+
+    return this.messageModel.findAll({
+      where,
+      include: [Company],
+      order: [['created_at', 'DESC']],
+    });
+  }
+
+  async getMessageStatsByMonth(
+    companyId: string,
+    month: string, // Format: "YYYY-MM"
+  ): Promise<{
+    totalMessages: number;
+    messageBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+    costBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  }> {
+    // Parse month to get start and end dates
+    const [year, monthNum] = month.split('-').map(Number);
+    const startDate = new Date(year, monthNum - 1, 1); // First day of month
+    const endDate = new Date(year, monthNum, 0); // Last day of month
+
+    // Get all messages for the company in the specified month
+    const messages = await this.messageModel.findAll({
+      where: {
+        company_id: companyId,
+        created_at: {
+          [Op.gte]: startDate,
+          [Op.lte]: endDate,
+        },
+      },
+      attributes: ['status', 'pricing'],
+    });
+
+    // Calculate breakdowns
+    const messageBreakdown = {
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+    };
+
+    const costBreakdown = {
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+    };
+
+    messages.forEach(message => {
+      // Count messages by status
+      switch (message.status) {
+        case MessageStatus.SENT:
+          messageBreakdown.sent++;
+          break;
+        case MessageStatus.DELIVERED:
+          messageBreakdown.delivered++;
+          break;
+        case MessageStatus.READ:
+          messageBreakdown.read++;
+          break;
+        case MessageStatus.FAILED:
+          messageBreakdown.failed++;
+          break;
+      }
+
+      // Calculate costs based on pricing information
+      if (message.pricing) {
+        const cost = this.calculateMessageCost(message.pricing, message.status);
+        switch (message.status) {
+          case MessageStatus.SENT:
+            costBreakdown.sent += cost;
+            break;
+          case MessageStatus.DELIVERED:
+            costBreakdown.delivered += cost;
+            break;
+          case MessageStatus.READ:
+            costBreakdown.read += cost;
+            break;
+          case MessageStatus.FAILED:
+            costBreakdown.failed += cost;
+            break;
+        }
+      }
+    });
+
+    return {
+      totalMessages: messages.length,
+      messageBreakdown,
+      costBreakdown,
+    };
+  }
+
+  private calculateMessageCost(pricing: any, status: MessageStatus): number {
+    // WhatsApp pricing structure (as of 2024):
+    // - Session messages: $0.0399 per message
+    // - Business-initiated messages: $0.0585 per message
+    // - Failed messages: $0.00 (no charge)
+
+    if (status === MessageStatus.FAILED) {
+      return 0;
+    }
+
+    // Default pricing if no specific pricing is available
+    const defaultCost = 0.0399; // Session message cost
+
+    if (pricing && pricing.billable) {
+      return pricing.billable * 0.001; // Convert from micro-units to dollars
+    }
+
+    return defaultCost;
   }
 }

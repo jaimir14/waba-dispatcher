@@ -26,6 +26,9 @@ import {
   StartConversationResponseDto,
   GetConversationDto,
   GetConversationResponseDto,
+  SendListMessageDto,
+  SendListMessageResponseDto,
+  MessageDetailDto,
 } from '../dto';
 import { QueueService, WhatsAppSendJobData } from '../queue/queue.service';
 
@@ -129,7 +132,7 @@ export class WhatsAppService {
       template.components = [
         {
           type: 'body',
-          parameters: createMessageDto.parameters.map((param) => {
+          parameters: createMessageDto.parameters.map(param => {
             if (param.type === 'text') {
               return {
                 type: 'text',
@@ -231,8 +234,12 @@ export class WhatsAppService {
   /**
    * Get messages by company
    */
-  async getCompanyMessages(companyId: string): Promise<Message[]> {
-    return this.messageRepository.findByCompanyId(companyId);
+  async getCompanyMessages(companyName: string): Promise<Message[]> {
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+    return this.messageRepository.findByCompanyId(company.id);
   }
 
   /**
@@ -288,12 +295,18 @@ export class WhatsAppService {
    * Send messages to multiple recipients
    */
   async sendMessageToMultipleRecipients(
-    companyId: string,
+    companyName: string,
     sendMessageDto: SendMessageDto,
   ): Promise<SendMessageResponseDto> {
     this.logger.log(
-      `Sending template message "${sendMessageDto.templateName}" to ${sendMessageDto.recipients.length} recipients for company ${companyId}`,
+      `Sending template message "${sendMessageDto.templateName}" to ${sendMessageDto.recipients.length} recipients for company ${companyName}`,
     );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
 
     const results: MessageResultDto[] = [];
     let successCount = 0;
@@ -307,12 +320,12 @@ export class WhatsAppService {
         createMessageDto.to = recipient;
         createMessageDto.template_name = sendMessageDto.templateName;
         createMessageDto.parameters = sendMessageDto.parameters?.map(
-          (param) => new TextParameter({ text: param }),
+          param => new TextParameter({ text: param }),
         );
 
         // Send message to individual recipient
         const message = await this.sendTemplateMessage(
-          companyId,
+          company.id,
           createMessageDto,
         );
 
@@ -360,13 +373,19 @@ export class WhatsAppService {
    * Send messages to multiple recipients using queue (asynchronous)
    */
   async sendMessageToMultipleRecipientsQueued(
-    companyId: string,
+    companyName: string,
     sendMessageDto: SendMessageDto,
     priority: number = 0,
   ): Promise<SendMessageResponseDto> {
     this.logger.log(
-      `Queueing template message "${sendMessageDto.templateName}" to ${sendMessageDto.recipients.length} recipients for company ${companyId}`,
+      `Queueing template message "${sendMessageDto.templateName}" to ${sendMessageDto.recipients.length} recipients for company ${companyName}`,
     );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
 
     const results: MessageResultDto[] = [];
     let successCount = 0;
@@ -376,7 +395,7 @@ export class WhatsAppService {
     for (const recipient of sendMessageDto.recipients) {
       try {
         const jobData: WhatsAppSendJobData = {
-          companyId,
+          companyId: company.id,
           to: recipient,
           templateName: sendMessageDto.templateName,
           parameters: sendMessageDto.parameters,
@@ -429,18 +448,24 @@ export class WhatsAppService {
    * Send messages to multiple recipients using bulk queue operation
    */
   async sendMessageToMultipleRecipientsBulkQueued(
-    companyId: string,
+    companyName: string,
     sendMessageDto: SendMessageDto,
     priority: number = 0,
   ): Promise<SendMessageResponseDto> {
     this.logger.log(
-      `Bulk queueing template message "${sendMessageDto.templateName}" to ${sendMessageDto.recipients.length} recipients for company ${companyId}`,
+      `Bulk queueing template message "${sendMessageDto.templateName}" to ${sendMessageDto.recipients.length} recipients for company ${companyName}`,
     );
 
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
     try {
-      const jobs = sendMessageDto.recipients.map((recipient) => ({
+      const jobs = sendMessageDto.recipients.map(recipient => ({
         data: {
-          companyId,
+          companyId: company.id,
           to: recipient,
           templateName: sendMessageDto.templateName,
           parameters: sendMessageDto.parameters,
@@ -451,7 +476,7 @@ export class WhatsAppService {
       await this.queueService.addBulkWhatsAppSendJobs(jobs);
 
       const results: MessageResultDto[] = sendMessageDto.recipients.map(
-        (recipient) => ({
+        recipient => ({
           recipient,
           status: 'sent' as const,
           messageId: 'queued',
@@ -473,7 +498,7 @@ export class WhatsAppService {
       this.logger.error(`Failed to bulk queue messages: ${error.message}`);
 
       const results: MessageResultDto[] = sendMessageDto.recipients.map(
-        (recipient) => ({
+        recipient => ({
           recipient,
           status: 'failed' as const,
           error: 'Failed to queue message',
@@ -492,32 +517,32 @@ export class WhatsAppService {
    * Start a conversation with a template message
    */
   async startConversation(
-    companyId: string,
+    companyName: string,
     startConversationDto: StartConversationDto,
   ): Promise<StartConversationResponseDto> {
     this.logger.log(
-      `Starting conversation with ${startConversationDto.to} for company ${companyId}`,
+      `Starting conversation with ${startConversationDto.to} for company ${companyName}`,
     );
 
     // Get company credentials
-    const company = await this.companyRepository.findById(companyId);
+    const company = await this.companyRepository.findByName(companyName);
     if (!company) {
-      throw new BadRequestException(`Company ${companyId} not found`);
+      throw new BadRequestException(`Company ${companyName} not found`);
     }
 
     if (!company.isActive) {
-      throw new BadRequestException(`Company ${companyId} is not active`);
+      throw new BadRequestException(`Company ${companyName} is not active`);
     }
 
     // Create or get conversation
     const conversation = await this.conversationModel.findOrCreate({
       where: {
-        company_id: companyId,
+        company_id: company.id,
         phone_number: startConversationDto.to,
         is_active: true,
       },
       defaults: {
-        company_id: companyId,
+        company_id: company.id,
         phone_number: startConversationDto.to,
         current_step: 'waiting_confirmation',
         context: {
@@ -536,13 +561,13 @@ export class WhatsAppService {
     createMessageDto.to = startConversationDto.to;
     createMessageDto.template_name = startConversationDto.templateName;
     createMessageDto.parameters = startConversationDto.parameters?.map(
-      (param) => new TextParameter({ text: param }),
+      param => new TextParameter({ text: param }),
     );
 
     try {
       // Send template message
       const message = await this.sendTemplateMessage(
-        companyId,
+        company.id,
         createMessageDto,
       );
 
@@ -574,27 +599,27 @@ export class WhatsAppService {
    * Send text message (non-template) to confirmed conversation
    */
   async sendTextMessage(
-    companyId: string,
+    companyName: string,
     sendTextMessageDto: SendTextMessageDto,
   ): Promise<SendTextMessageResponseDto> {
     this.logger.log(
-      `Sending text message to ${sendTextMessageDto.to} for company ${companyId}`,
+      `Sending text message to ${sendTextMessageDto.to} for company ${companyName}`,
     );
 
     // Get company credentials
-    const company = await this.companyRepository.findById(companyId);
+    const company = await this.companyRepository.findByName(companyName);
     if (!company) {
-      throw new BadRequestException(`Company ${companyId} not found`);
+      throw new BadRequestException(`Company ${companyName} not found`);
     }
 
     if (!company.isActive) {
-      throw new BadRequestException(`Company ${companyId} is not active`);
+      throw new BadRequestException(`Company ${companyName} is not active`);
     }
 
     // Check if conversation exists and is confirmed
     const conversation = await this.conversationModel.findOne({
       where: {
-        company_id: companyId,
+        company_id: company.id,
         phone_number: sendTextMessageDto.to,
         is_active: true,
       },
@@ -607,17 +632,17 @@ export class WhatsAppService {
       };
     }
 
-    if (conversation.current_step !== 'confirmed') {
+    if (conversation.current_step !== 'accepted') {
       return {
         status: 'conversation_not_confirmed',
         message:
-          'Conversation is not confirmed. Only confirmed conversations can receive text messages.',
+          'Conversation is not accepted. Only accepted conversations can receive text messages.',
       };
     }
 
     // Create message record in database
     const message = await this.messageRepository.create({
-      company_id: companyId,
+      company_id: company.id,
       to_phone_number: sendTextMessageDto.to,
       template_name: null, // No template for text messages
       parameters: null,
@@ -684,27 +709,27 @@ export class WhatsAppService {
    * Get conversation by phone number
    */
   async getConversation(
-    companyId: string,
+    companyName: string,
     getConversationDto: GetConversationDto,
   ): Promise<GetConversationResponseDto> {
     this.logger.log(
-      `Getting conversation for ${getConversationDto.phoneNumber} in company ${companyId}`,
+      `Getting conversation for ${getConversationDto.phoneNumber} in company ${companyName}`,
     );
 
     // Get company credentials
-    const company = await this.companyRepository.findById(companyId);
+    const company = await this.companyRepository.findByName(companyName);
     if (!company) {
-      throw new BadRequestException(`Company ${companyId} not found`);
+      throw new BadRequestException(`Company ${companyName} not found`);
     }
 
     if (!company.isActive) {
-      throw new BadRequestException(`Company ${companyId} is not active`);
+      throw new BadRequestException(`Company ${companyName} is not active`);
     }
 
     // Find conversation
     const conversation = await this.conversationModel.findOne({
       where: {
-        company_id: companyId,
+        company_id: company.id,
         phone_number: getConversationDto.phoneNumber,
         is_active: true,
       },
@@ -733,26 +758,32 @@ export class WhatsAppService {
   /**
    * Get message statistics for a company
    */
-  async getCompanyStats(companyId: string, hours: number = 24) {
+  async getCompanyStats(companyName: string, hours: number = 24) {
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
     const [totalSent, totalDelivered, totalRead, totalFailed] =
       await Promise.all([
         this.messageRepository.countByCompanyAndStatus(
-          companyId,
+          company.id,
           MessageStatus.SENT,
           hours,
         ),
         this.messageRepository.countByCompanyAndStatus(
-          companyId,
+          company.id,
           MessageStatus.DELIVERED,
           hours,
         ),
         this.messageRepository.countByCompanyAndStatus(
-          companyId,
+          company.id,
           MessageStatus.READ,
           hours,
         ),
         this.messageRepository.countByCompanyAndStatus(
-          companyId,
+          company.id,
           MessageStatus.FAILED,
           hours,
         ),
@@ -766,6 +797,415 @@ export class WhatsAppService {
       deliveryRate: totalSent > 0 ? (totalDelivered / totalSent) * 100 : 0,
       readRate: totalDelivered > 0 ? (totalRead / totalDelivered) * 100 : 0,
       failureRate: totalSent > 0 ? (totalFailed / totalSent) * 100 : 0,
+    };
+  }
+
+  /**
+   * Send formatted list message
+   */
+  async sendListMessage(
+    companyName: string,
+    sendListMessageDto: SendListMessageDto,
+  ): Promise<SendListMessageResponseDto> {
+    this.logger.log(
+      `Sending list message "${sendListMessageDto.listName}" to ${sendListMessageDto.recipients.length} recipients for company ${companyName}`,
+    );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
+    if (!company.isActive) {
+      throw new BadRequestException(`Company ${companyName} is not active`);
+    }
+
+    // Calculate totals
+    const hasReventados = sendListMessageDto.numbers.some(item => item.reventadoAmount !== undefined);
+    
+    let totalAmount = 0;
+    let normalTotal = 0;
+    let reventadosTotal = 0;
+
+    if (hasReventados) {
+      // Calculate separate totals for reventados format
+      normalTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
+      reventadosTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + (item.reventadoAmount || 0), 0);
+      totalAmount = normalTotal + reventadosTotal;
+    } else {
+      // Regular format
+      totalAmount = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
+    }
+
+    // Format the message
+    const formattedMessage = this.formatListMessage(sendListMessageDto, totalAmount);
+
+    const results: Array<{
+      recipient: string;
+      status: 'sent' | 'failed';
+      messageId?: string;
+      error?: string;
+    }> = [];
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    // Process each recipient
+    for (const recipient of sendListMessageDto.recipients) {
+      try {
+        // Check if conversation exists and is accepted
+        const conversation = await this.conversationModel.findOne({
+          where: {
+            company_id: company.id,
+            phone_number: recipient,
+            is_active: true,
+          },
+        });
+
+        if (!conversation || conversation.current_step !== 'accepted') {
+          results.push({
+            recipient,
+            status: 'failed',
+            error: 'Conversation not accepted',
+          });
+          failureCount++;
+          continue;
+        }
+
+        // Create message record in database
+        const message = await this.messageRepository.create({
+          company_id: company.id,
+          to_phone_number: recipient,
+          template_name: null, // No template for list messages
+          parameters: null,
+          status: MessageStatus.PENDING,
+        });
+
+        try {
+          // Prepare WhatsApp API payload for text message
+          const whatsappPayload = {
+            messaging_product: 'whatsapp',
+            to: recipient,
+            type: 'text',
+            text: {
+              body: formattedMessage,
+            },
+          };
+
+          // Send message to WhatsApp API
+          const response = await this.httpService.sendMessage(
+            company.settings?.metaPhoneNumberId ||
+              this.configService.metaPhoneNumberId,
+            whatsappPayload,
+          );
+
+          // Update message with WhatsApp ID and mark as sent
+          const responseData = response.data;
+          const whatsappMessage = responseData.messages[0];
+          
+          await this.messageRepository.updateWhatsAppId(
+            message.id,
+            whatsappMessage.id,
+          );
+          await this.messageRepository.updateStatus(message.id, MessageStatus.SENT);
+          
+          // Capture pricing information if available
+          if (whatsappMessage.pricing) {
+            await this.messageRepository.updatePricing(message.id, {
+              billable: whatsappMessage.pricing.billable,
+              pricing_model: whatsappMessage.pricing.pricing_model,
+              category: whatsappMessage.pricing.category,
+            });
+          }
+
+          results.push({
+            recipient,
+            status: 'sent',
+            messageId: message.id.toString(),
+          });
+
+          successCount++;
+          this.logger.log(`List message sent successfully to ${recipient}`);
+        } catch (error) {
+          this.logger.error(
+            `Failed to send list message to ${recipient}: ${error.message}`,
+          );
+
+          // Mark message as failed
+          await this.messageRepository.markAsFailed(
+            message.id,
+            error.response?.data?.error?.code || 'UNKNOWN_ERROR',
+            error.response?.data?.error?.message || error.message,
+          );
+
+          results.push({
+            recipient,
+            status: 'failed',
+            error: error.message,
+          });
+
+          failureCount++;
+        }
+      } catch (error) {
+        results.push({
+          recipient,
+          status: 'failed',
+          error: error.message,
+        });
+        failureCount++;
+      }
+    }
+
+    const response: SendListMessageResponseDto = {
+      status:
+        failureCount === 0
+          ? 'success'
+          : failureCount === sendListMessageDto.recipients.length
+            ? 'failed'
+            : 'partial',
+      message: `List message sent to ${successCount}/${sendListMessageDto.recipients.length} recipients`,
+      results,
+      totalAmount,
+      currency: 'CRC',
+      isReventados: hasReventados,
+      ...(hasReventados && {
+        normalTotal,
+        reventadosTotal,
+      }),
+    };
+
+    this.logger.log(
+      `List message completed: ${successCount} success, ${failureCount} failed`,
+    );
+
+    return response;
+  }
+
+  /**
+   * Format list message according to specified template
+   */
+  private formatListMessage(
+    sendListMessageDto: SendListMessageDto,
+    totalAmount: number,
+  ): string {
+    const { listName, reporter, numbers, customMessage } = sendListMessageDto;
+
+    // Check if this is a reventados format
+    const hasReventados = numbers.some(item => item.reventadoAmount !== undefined);
+
+    let message = '';
+    let numberLines = '';
+
+    if (hasReventados) {
+      // Reventados format
+      message = `*Lista: Reventado día ${listName}*
+A nombre de: ${reporter}
+
+\`\`\``;
+
+      numberLines = numbers
+        .map(({ number, amount, reventadoAmount }) => {
+          const reventadoPart = reventadoAmount ? `, R = ₡${reventadoAmount.toLocaleString()}` : '';
+          return `⁠ ${number.padStart(2, '0')} = ₡${amount.toLocaleString()}${reventadoPart}, ⁠`;
+        })
+        .join('\n');
+
+      // Calculate separate totals
+      const normalTotal = numbers.reduce((sum, item) => sum + item.amount, 0);
+      const reventadosTotal = numbers.reduce((sum, item) => sum + (item.reventadoAmount || 0), 0);
+
+      message += `\n${numberLines}\n\`\`\`\n\nNormal: ₡${normalTotal.toLocaleString()}\nReventados: ₡${reventadosTotal.toLocaleString()}\n\nTotal: ₡${totalAmount.toLocaleString()}`;
+    } else {
+      // Regular format
+      message = `*Lista: ${listName}*
+A nombre de: ${reporter}
+
+\`\`\``;
+
+      numberLines = numbers
+        .map(({ number, amount }) => `${number.padStart(2, '0')} = ₡${amount.toLocaleString()},`)
+        .join('\n');
+
+      message += `\n${numberLines}\n\`\`\`\n\n*Total: ₡${totalAmount.toLocaleString()}*`;
+    }
+
+    // Add custom message if provided
+    if (customMessage) {
+      message += `\n\n${customMessage}`;
+    }
+
+    return message;
+  }
+
+  /**
+   * Get all messages for a company by day
+   */
+  async getMessagesByDay(
+    companyName: string,
+    date: string,
+    status?: string,
+  ): Promise<{
+    companyName: string;
+    date: string;
+    totalMessages: number;
+    messages: MessageDetailDto[];
+    statusBreakdown: {
+      pending: number;
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  }> {
+    this.logger.log(
+      `Getting messages for company ${companyName} for date ${date}`,
+    );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException(
+        'Date must be in format YYYY-MM-DD (e.g., 2024-12-25)',
+      );
+    }
+
+    // Get messages from repository
+    const messages = await this.messageRepository.getMessagesByDay(
+      company.id,
+      date,
+      status,
+    );
+
+    // Calculate status breakdown
+    const statusBreakdown = {
+      pending: 0,
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+    };
+
+    messages.forEach((message) => {
+      switch (message.status) {
+        case MessageStatus.PENDING:
+          statusBreakdown.pending++;
+          break;
+        case MessageStatus.SENT:
+          statusBreakdown.sent++;
+          break;
+        case MessageStatus.DELIVERED:
+          statusBreakdown.delivered++;
+          break;
+        case MessageStatus.READ:
+          statusBreakdown.read++;
+          break;
+        case MessageStatus.FAILED:
+          statusBreakdown.failed++;
+          break;
+      }
+    });
+
+    // Transform messages to DTO format
+    const messageDetails: MessageDetailDto[] = messages.map((message) => ({
+      id: message.id,
+      whatsappMessageId: message.whatsapp_message_id,
+      toPhoneNumber: message.to_phone_number,
+      templateName: message.template_name,
+      parameters: message.parameters,
+      status: message.status,
+      errorCode: message.error_code,
+      errorMessage: message.error_message,
+      pricing: message.pricing,
+      sentAt: message.sent_at?.toISOString() || null,
+      deliveredAt: message.delivered_at?.toISOString() || null,
+      readAt: message.read_at?.toISOString() || null,
+      createdAt: message.created_at.toISOString(),
+      updatedAt: message.updated_at.toISOString(),
+    }));
+
+    return {
+      companyName,
+      date,
+      totalMessages: messages.length,
+      messages: messageDetails,
+      statusBreakdown,
+    };
+  }
+
+  /**
+   * Get message statistics for a company by month
+   */
+  async getMessageStatsByMonth(
+    companyName: string,
+    month: string,
+  ): Promise<{
+    companyName: string;
+    month: string;
+    totalMessages: number;
+    totalCost: number;
+    currency: string;
+    messageBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+    costBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  }> {
+    this.logger.log(
+      `Getting message stats for company ${companyName} for month ${month}`,
+    );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
+    // Validate month format
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new BadRequestException(
+        'Month must be in format YYYY-MM (e.g., 2024-01)',
+      );
+    }
+
+    // Get statistics from repository
+    const stats = await this.messageRepository.getMessageStatsByMonth(
+      company.id,
+      month,
+    );
+
+    // Calculate total cost
+    const totalCost =
+      stats.costBreakdown.sent +
+      stats.costBreakdown.delivered +
+      stats.costBreakdown.read +
+      stats.costBreakdown.failed;
+
+    return {
+      companyName,
+      month,
+      totalMessages: stats.totalMessages,
+      totalCost: Math.round(totalCost * 10000) / 10000, // Round to 4 decimal places
+      currency: 'USD',
+      messageBreakdown: stats.messageBreakdown,
+      costBreakdown: {
+        sent: Math.round(stats.costBreakdown.sent * 10000) / 10000,
+        delivered: Math.round(stats.costBreakdown.delivered * 10000) / 10000,
+        read: Math.round(stats.costBreakdown.read * 10000) / 10000,
+        failed: Math.round(stats.costBreakdown.failed * 10000) / 10000,
+      },
     };
   }
 }

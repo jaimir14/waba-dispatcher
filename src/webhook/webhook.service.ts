@@ -85,28 +85,30 @@ export class WebhookService {
       if (message.type === 'text' && message.text?.body) {
         try {
           // Find existing conversation to get company ID
-          const conversation = await this.conversationRepository.findByPhoneNumber(
-            message.from
-          );
-          
-          let companyId: string;
+          const conversation =
+            await this.conversationRepository.findByPhoneNumber(message.from);
+
+          let companyName: string;
           if (conversation) {
             // Use existing conversation's company
-            companyId = conversation.company_id;
+            const company = await this.conversationService['whatsappService'][
+              'companyRepository'
+            ].findById(conversation.company_id);
+            companyName = company?.name || 'testcompany';
             this.logger.log(
-              `Found existing conversation for ${message.from} with company ${companyId}`,
+              `Found existing conversation for ${message.from} with company ${companyName}`,
             );
           } else {
             // New conversation - use default company
-            companyId = '550e8400-e29b-41d4-a716-446655440000'; // testcompany
+            companyName = 'testcompany';
             this.logger.log(
-              `New conversation for ${message.from}, using default company ${companyId}`,
+              `New conversation for ${message.from}, using default company ${companyName}`,
             );
           }
 
           await this.conversationService.processIncomingMessage(
             message.from,
-            companyId,
+            companyName,
             message.text.body,
           );
         } catch (error) {
@@ -118,15 +120,22 @@ export class WebhookService {
         // Handle missing or invalid message content
         try {
           // Find existing conversation to get company ID
-          const conversation = await this.conversationRepository.findByPhoneNumber(
-            message.from
-          );
-          
-          const companyId = conversation?.company_id || '550e8400-e29b-41d4-a716-446655440000';
+          const conversation =
+            await this.conversationRepository.findByPhoneNumber(message.from);
+
+          let companyName: string;
+          if (conversation) {
+            const company = await this.conversationService['whatsappService'][
+              'companyRepository'
+            ].findById(conversation.company_id);
+            companyName = company?.name || 'testcompany';
+          } else {
+            companyName = 'testcompany';
+          }
 
           await this.conversationService.processIncomingMessage(
             message.from,
-            companyId,
+            companyName,
             '', // Empty message to mark as invalid
           );
         } catch (error) {
@@ -192,12 +201,36 @@ export class WebhookService {
       switch (status.status) {
         case 'sent':
           newStatus = MessageStatus.SENT;
+          // Capture pricing information from WhatsApp
+          if (status.pricing) {
+            additionalData.pricing = {
+              billable: status.pricing.billable,
+              pricing_model: status.pricing.pricing_model,
+              category: status.pricing.category,
+            };
+          }
           break;
         case 'delivered':
           newStatus = MessageStatus.DELIVERED;
+          // Update pricing if not already captured
+          if (status.pricing && !message.pricing) {
+            additionalData.pricing = {
+              billable: status.pricing.billable,
+              pricing_model: status.pricing.pricing_model,
+              category: status.pricing.category,
+            };
+          }
           break;
         case 'read':
           newStatus = MessageStatus.READ;
+          // Update pricing if not already captured
+          if (status.pricing && !message.pricing) {
+            additionalData.pricing = {
+              billable: status.pricing.billable,
+              pricing_model: status.pricing.pricing_model,
+              category: status.pricing.category,
+            };
+          }
           break;
         case 'failed':
           newStatus = MessageStatus.FAILED;
@@ -208,6 +241,12 @@ export class WebhookService {
               error_data: status.error.error_data,
             };
           }
+          // Failed messages have 0 cost
+          additionalData.pricing = {
+            billable: 0,
+            pricing_model: 'failed',
+            category: 'failed',
+          };
           break;
         default:
           this.logger.warn(

@@ -17,25 +17,32 @@ export class ConversationService {
    */
   async processIncomingMessage(
     phoneNumber: string,
-    companyId: string,
+    companyName: string,
     messageText: string,
   ): Promise<void> {
     this.logger.log(
-      `Processing incoming message from ${phoneNumber} for company ${companyId}: "${messageText}"`,
+      `Processing incoming message from ${phoneNumber} for company ${companyName}: "${messageText}"`,
     );
+
+    // Find company by name first
+    const company =
+      await this.whatsappService['companyRepository'].findByName(companyName);
+    if (!company) {
+      throw new Error(`Company ${companyName} not found`);
+    }
 
     // Find or create conversation
     const conversation = await this.conversationRepository.findOrCreate(
       phoneNumber,
-      companyId,
+      company.id,
     );
 
-    // Process the message based on current step
+    // Process the message based on conversation status
     await this.handleMessage(conversation, messageText);
   }
 
   /**
-   * Handle message based on conversation step and content
+   * Handle message based on conversation status
    */
   private async handleMessage(
     conversation: Conversation,
@@ -44,7 +51,7 @@ export class ConversationService {
     const normalizedText = messageText.toLowerCase().trim();
 
     this.logger.log(
-      `Handling message in step "${conversation.current_step}": "${normalizedText}"`,
+      `Handling message in status "${conversation.current_step}": "${normalizedText}"`,
     );
 
     // Check for empty or missing message
@@ -53,24 +60,45 @@ export class ConversationService {
       return;
     }
 
-    // Check for "Si/sí" response (case insensitive)
-    if (this.isAffirmativeResponse(normalizedText)) {
-      await this.handleAffirmativeResponse(conversation);
-      return;
+    // Check if this is the first message (welcome step)
+    if (conversation.current_step === 'welcome') {
+      await this.handleFirstMessage(conversation, normalizedText);
+    } else {
+      // This is not the first message - send "not accepting" response
+      await this.handleSubsequentMessage(conversation);
     }
+  }
 
-    // Handle other responses based on current step
-    switch (conversation.current_step) {
-      case 'welcome':
-        await this.handleWelcomeStep(conversation);
-        break;
-      case 'waiting_confirmation':
-        await this.handleConfirmationStep(conversation);
-        break;
-      default:
-        await this.handleDefaultResponse(conversation);
-        break;
+  /**
+   * Handle the first message - determine if conversation is accepted or rejected
+   */
+  private async handleFirstMessage(
+    conversation: Conversation,
+    messageText: string,
+  ): Promise<void> {
+    // Check for affirmative response
+    if (this.isAffirmativeResponse(messageText)) {
+      await this.handleAffirmativeResponse(conversation);
+    } else {
+      await this.handleRejectionResponse(conversation);
     }
+  }
+
+  /**
+   * Handle subsequent messages - send "not accepting" response
+   */
+  private async handleSubsequentMessage(
+    conversation: Conversation,
+  ): Promise<void> {
+    await this.sendTextMessage(
+      conversation.company_id,
+      conversation.phone_number,
+      'Este número no está aceptando mensajes por el momento, excepto para aceptar o rechazar conversaciones.',
+    );
+
+    this.logger.log(
+      `Sent "not accepting" response to ${conversation.phone_number}`,
+    );
   }
 
   /**
@@ -111,77 +139,40 @@ export class ConversationService {
     );
 
     // Update conversation step
-    await this.conversationRepository.updateStep(conversation.id, 'confirmed', {
+    await this.conversationRepository.updateStep(conversation.id, 'accepted', {
       ...conversation.context,
-      confirmed: true,
-      confirmedAt: new Date().toISOString(),
+      accepted: true,
+      acceptedAt: new Date().toISOString(),
     });
 
-    this.logger.log(`Confirmation sent to ${conversation.phone_number}`);
+    this.logger.log(`Conversation accepted for ${conversation.phone_number}`);
   }
 
   /**
-   * Handle welcome step
+   * Handle rejection response (non-affirmative)
    */
-  private async handleWelcomeStep(conversation: Conversation): Promise<void> {
-    // For now, just acknowledge the message
-    await this.sendTextMessage(
-      conversation.company_id,
-      conversation.phone_number,
-      'Gracias por tu mensaje. ¿Necesitas ayuda con algo específico?',
-    );
-
-    await this.conversationRepository.updateStep(
-      conversation.id,
-      'waiting_confirmation',
-    );
-  }
-
-  /**
-   * Handle confirmation step
-   */
-  private async handleConfirmationStep(
+  private async handleRejectionResponse(
     conversation: Conversation,
   ): Promise<void> {
-    // If they send another message, mark as invalid
+    this.logger.log(
+      `User ${conversation.phone_number} rejected with non-affirmative response`,
+    );
+
+    // Send rejection message
     await this.sendTextMessage(
       conversation.company_id,
       conversation.phone_number,
-      'No se recibió una confirmación válida. La conversación ha sido marcada como inválida.',
+      'Entendido, no se enviarán listas a este número.',
     );
 
-    // Mark conversation as invalid
-    await this.conversationRepository.updateStep(conversation.id, 'invalid', {
+    // Update conversation step
+    await this.conversationRepository.updateStep(conversation.id, 'rejected', {
       ...conversation.context,
-      invalid: true,
-      invalidAt: new Date().toISOString(),
-      reason: 'non_affirmative_response',
+      rejected: true,
+      rejectedAt: new Date().toISOString(),
     });
 
-    this.logger.log(`Conversation ${conversation.id} marked as invalid`);
-  }
-
-  /**
-   * Handle default response
-   */
-  private async handleDefaultResponse(
-    conversation: Conversation,
-  ): Promise<void> {
-    await this.sendTextMessage(
-      conversation.company_id,
-      conversation.phone_number,
-      'No se recibió una confirmación válida. La conversación ha sido marcada como inválida.',
-    );
-
-    // Mark conversation as invalid
-    await this.conversationRepository.updateStep(conversation.id, 'invalid', {
-      ...conversation.context,
-      invalid: true,
-      invalidAt: new Date().toISOString(),
-      reason: 'invalid_response',
-    });
-
-    this.logger.log(`Conversation ${conversation.id} marked as invalid`);
+    this.logger.log(`Conversation rejected for ${conversation.phone_number}`);
   }
 
   /**
@@ -234,19 +225,29 @@ export class ConversationService {
    */
   async getConversation(
     phoneNumber: string,
-    companyId: string,
+    companyName: string,
   ): Promise<Conversation | null> {
+    const company =
+      await this.whatsappService['companyRepository'].findByName(companyName);
+    if (!company) {
+      throw new Error(`Company ${companyName} not found`);
+    }
     return this.conversationRepository.findByPhoneAndCompany(
       phoneNumber,
-      companyId,
+      company.id,
     );
   }
 
   /**
    * Get all active conversations for a company
    */
-  async getActiveConversations(companyId: string): Promise<Conversation[]> {
-    return this.conversationRepository.getActiveConversations(companyId);
+  async getActiveConversations(companyName: string): Promise<Conversation[]> {
+    const company =
+      await this.whatsappService['companyRepository'].findByName(companyName);
+    if (!company) {
+      throw new Error(`Company ${companyName} not found`);
+    }
+    return this.conversationRepository.getActiveConversations(company.id);
   }
 
   /**
@@ -256,22 +257,11 @@ export class ConversationService {
     conversation: Conversation,
     reason: string,
   ): Promise<void> {
-    await this.sendTextMessage(
-      conversation.company_id,
-      conversation.phone_number,
-      'No se recibió una confirmación válida. La conversación ha sido marcada como inválida.',
-    );
-
-    // Mark conversation as invalid
-    await this.conversationRepository.updateStep(conversation.id, 'invalid', {
-      ...conversation.context,
-      invalid: true,
-      invalidAt: new Date().toISOString(),
-      reason,
-    });
+    // For invalid messages, treat as rejection
+    await this.handleRejectionResponse(conversation);
 
     this.logger.log(
-      `Conversation ${conversation.id} marked as invalid: ${reason}`,
+      `Conversation ${conversation.id} marked as rejected due to: ${reason}`,
     );
   }
 

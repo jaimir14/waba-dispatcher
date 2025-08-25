@@ -27,6 +27,14 @@ export class WebhookEntryChangeValueStatus {
   @IsOptional()
   @IsString()
   timestamp?: string;
+
+  @IsOptional()
+  @IsObject()
+  pricing?: {
+    billable: number;
+    pricing_model: string;
+    category: string;
+  };
 }
 
 export class WebhookEntryChangeValue {
