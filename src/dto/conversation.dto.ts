@@ -19,10 +19,10 @@ export class StartConversationDto {
 }
 
 export class StartConversationResponseDto {
-  status: 'success' | 'failed';
+  status: 'success' | 'failed' | 'skipped';
   message: string;
-  conversationId: string;
-  messageId?: string;
+  conversationId: string | null;
+  messageId?: string | null;
 }
 
 export class GetConversationDto {

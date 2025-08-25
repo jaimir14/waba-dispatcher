@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { BullModule } from '@nestjs/bull';
 import { WhatsAppService } from './whatsapp.service';
@@ -17,6 +17,7 @@ import { WhatsAppSendProcessor } from '../queue/processors/whatsapp-send.process
     ConfigModule,
     HttpClientModule,
     SequelizeModule.forFeature([Message, Company, Conversation]),
+    forwardRef(() => import('../conversation/conversation.module').then(m => m.ConversationModule)),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

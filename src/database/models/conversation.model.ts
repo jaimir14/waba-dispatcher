@@ -66,6 +66,20 @@ export class Conversation extends Model {
   last_message_at: Date;
 
   @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    comment: 'When the session started',
+  })
+  session_started_at: Date;
+
+  @Column({
+    type: DataType.DATE,
+    allowNull: true,
+    comment: 'When the session expires (24 hours from last interaction)',
+  })
+  session_expires_at: Date;
+
+  @Column({
     type: DataType.BOOLEAN,
     allowNull: false,
     defaultValue: true,

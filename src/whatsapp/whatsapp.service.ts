@@ -31,6 +31,7 @@ import {
   MessageDetailDto,
 } from '../dto';
 import { QueueService, WhatsAppSendJobData } from '../queue/queue.service';
+import { ConversationService } from '../conversation/conversation.service';
 
 @Injectable()
 export class WhatsAppService {
@@ -45,6 +46,8 @@ export class WhatsAppService {
     private readonly conversationModel: typeof Conversation,
     @Inject(forwardRef(() => QueueService))
     private readonly queueService: QueueService,
+    @Inject(forwardRef(() => ConversationService))
+    private readonly conversationService: ConversationService,
   ) {}
 
   /**
@@ -534,6 +537,25 @@ export class WhatsAppService {
       throw new BadRequestException(`Company ${companyName} is not active`);
     }
 
+    // Check if conversation exists and session is expiring soon (within 4 hours)
+    const isExpiringSoon = await this.conversationService.isSessionExpiringSoon(
+      startConversationDto.to,
+      companyName,
+      4, // 4 hours threshold
+    );
+
+    if (!isExpiringSoon) {
+      this.logger.log(
+        `Session for ${startConversationDto.to} is not expiring soon, skipping template message`,
+      );
+      return {
+        status: 'skipped',
+        message: 'Session is not expiring soon, no template message needed',
+        conversationId: null,
+        messageId: null,
+      };
+    }
+
     // Create or get conversation
     const conversation = await this.conversationModel.findOrCreate({
       where: {
@@ -544,7 +566,7 @@ export class WhatsAppService {
       defaults: {
         company_id: company.id,
         phone_number: startConversationDto.to,
-        current_step: 'waiting_confirmation',
+        current_step: 'welcome',
         context: {
           templateName: startConversationDto.templateName,
           parameters: startConversationDto.parameters,
@@ -918,6 +940,9 @@ export class WhatsAppService {
               category: whatsappMessage.pricing.category,
             });
           }
+
+          // Mark conversation as waiting for response
+          await this.conversationService.markAsWaitingResponse(recipient, companyName);
 
           results.push({
             recipient,

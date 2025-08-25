@@ -152,4 +152,83 @@ export class ConversationRepository {
 
     return result;
   }
+
+  /**
+   * Update session expiration to 24 hours from now
+   */
+  async updateSessionExpiration(conversationId: string): Promise<void> {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    await Conversation.update(
+      {
+        session_expires_at: expiresAt,
+        last_message_at: new Date(),
+      },
+      {
+        where: { id: conversationId },
+      },
+    );
+  }
+
+  /**
+   * Start session (set session_started_at and session_expires_at)
+   */
+  async startSession(conversationId: string): Promise<void> {
+    const now = new Date();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    await Conversation.update(
+      {
+        session_started_at: now,
+        session_expires_at: expiresAt,
+        last_message_at: now,
+      },
+      {
+        where: { id: conversationId },
+      },
+    );
+  }
+
+  /**
+   * Check if conversation session expires within the next X hours
+   */
+  async isSessionExpiringSoon(
+    phoneNumber: string,
+    companyId: string,
+    hoursThreshold: number = 4,
+  ): Promise<boolean> {
+    const thresholdTime = new Date();
+    thresholdTime.setHours(thresholdTime.getHours() + hoursThreshold);
+
+    const conversation = await Conversation.findOne({
+      where: {
+        phone_number: phoneNumber,
+        company_id: companyId,
+        is_active: true,
+        session_expires_at: {
+          [Op.lt]: thresholdTime,
+        },
+      },
+    });
+
+    return !!conversation;
+  }
+
+  /**
+   * Get conversation with session info
+   */
+  async findByPhoneAndCompanyWithSession(
+    phoneNumber: string,
+    companyId: string,
+  ): Promise<Conversation | null> {
+    return Conversation.findOne({
+      where: {
+        phone_number: phoneNumber,
+        company_id: companyId,
+        is_active: true,
+      },
+    });
+  }
 }
