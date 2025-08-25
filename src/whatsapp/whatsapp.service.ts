@@ -60,7 +60,7 @@ export class WhatsAppService {
 
     // Get company credentials
     console.log('companyId', companyId);
-    const company = await this.companyRepository.findByName(companyId);
+    const company = await this.companyRepository.findById(companyId);
     if (!company) {
       throw new BadRequestException(`Company ${companyId} not found`);
     }
