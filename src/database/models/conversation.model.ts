@@ -5,11 +5,13 @@ import {
   DataType,
   ForeignKey,
   BelongsTo,
+  HasMany,
   Index,
   CreatedAt,
   UpdatedAt,
 } from 'sequelize-typescript';
 import { Company } from './company.model';
+import { List } from './list.model';
 
 @Table({
   tableName: 'conversations',
@@ -34,6 +36,9 @@ export class Conversation extends Model {
 
   @BelongsTo(() => Company)
   company: Company;
+
+  @HasMany(() => List)
+  lists: List[];
 
   @Index
   @Column({

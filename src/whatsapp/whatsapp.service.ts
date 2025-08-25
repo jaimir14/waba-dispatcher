@@ -32,6 +32,7 @@ import {
 } from '../dto';
 import { QueueService, WhatsAppSendJobData } from '../queue/queue.service';
 import { ConversationService } from '../conversation/conversation.service';
+import { ListsService } from '../lists/lists.service';
 
 @Injectable()
 export class WhatsAppService {
@@ -48,6 +49,7 @@ export class WhatsAppService {
     private readonly queueService: QueueService,
     @Inject(forwardRef(() => ConversationService))
     private readonly conversationService: ConversationService,
+    private readonly listsService: ListsService,
   ) {}
 
   /**
@@ -893,6 +895,28 @@ export class WhatsAppService {
           });
           failureCount++;
           continue;
+        }
+
+        // Create or update list with pending status
+        try {
+          await this.listsService.createOrUpdateList({
+            list_id: sendListMessageDto.listId,
+            conversation_id: conversation.id,
+            metadata: {
+              listName: sendListMessageDto.listName,
+              reporter: sendListMessageDto.reporter,
+              totalAmount,
+              hasReventados,
+              ...(hasReventados && {
+                normalTotal,
+                reventadosTotal,
+              }),
+            },
+          });
+          this.logger.log(`List ${sendListMessageDto.listId} created/updated with pending status for conversation ${conversation.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to create/update list ${sendListMessageDto.listId}: ${error.message}`);
+          // Continue with message sending even if list creation fails
         }
 
         // Create message record in database

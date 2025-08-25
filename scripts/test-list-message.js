@@ -9,6 +9,7 @@ async function testListMessage() {
     console.log('📋 Testing list message endpoint...\n');
 
     const listMessageData = {
+      listId: 'test-list-001', // Required list identifier
       recipients: ['50683186803'],
       listName: 'Lotería Nacional',
       reporter: 'Juan Pérez',
@@ -23,6 +24,7 @@ async function testListMessage() {
     };
 
     console.log('📤 Sending list message...');
+    console.log('   List ID:', listMessageData.listId);
     console.log('   List Name:', listMessageData.listName);
     console.log('   Reporter:', listMessageData.reporter);
     console.log('   Recipients:', listMessageData.recipients.length);
@@ -36,7 +38,7 @@ async function testListMessage() {
           'x-api-key': API_KEY,
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
 
     console.log('\n📥 Response:');
@@ -70,7 +72,6 @@ async function testListMessage() {
     console.log('16 = ₡250');
     console.log('```');
     console.log('*Total: ₡2,650*');
-
   } catch (error) {
     console.error('\n❌ Error:', error.response?.data || error.message);
   }

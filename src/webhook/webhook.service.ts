@@ -7,6 +7,7 @@ import { MessageRepository } from '../database/repositories/message.repository';
 import { MessageStatus } from '../database/models/message.model';
 import { ConversationService } from '../conversation/conversation.service';
 import { ConversationRepository } from '../database/repositories/conversation.repository';
+import { ListsService } from '../lists/lists.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class WebhookService {
     private readonly messageRepository: MessageRepository,
     private readonly conversationService: ConversationService,
     private readonly conversationRepository: ConversationRepository,
+    private readonly listsService: ListsService,
   ) {}
 
   /**
@@ -106,11 +108,21 @@ export class WebhookService {
             );
           }
 
+          // Process the incoming message for conversation flow
           await this.conversationService.processIncomingMessage(
             message.from,
             companyName,
             message.text.body,
           );
+
+          // Handle list response if conversation is waiting for response
+          if (conversation) {
+            await this.listsService.handleListResponse(
+              conversation.id,
+              conversation.current_step,
+              message.text.body,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Failed to process incoming message from ${message.from}: ${error.message}`,

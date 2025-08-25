@@ -11,11 +11,13 @@ import { ConfigModule, ConfigService } from '../config';
 import { HttpClientModule } from '../http';
 import { QueueService } from '../queue/queue.service';
 import { WhatsAppSendProcessor } from '../queue/processors/whatsapp-send.processor';
+import { ListsModule } from '../lists/lists.module';
 
 @Module({
   imports: [
     ConfigModule,
     HttpClientModule,
+    ListsModule,
     SequelizeModule.forFeature([Message, Company, Conversation]),
     forwardRef(() => import('../conversation/conversation.module').then(m => m.ConversationModule)),
     BullModule.forRootAsync({

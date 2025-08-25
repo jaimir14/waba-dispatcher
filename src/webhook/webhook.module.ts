@@ -5,9 +5,10 @@ import { HttpClientModule } from '../http';
 import { DatabaseModule } from '../database';
 import { ConfigModule } from '../config';
 import { ConversationModule } from '../conversation';
+import { ListsModule } from '../lists/lists.module';
 
 @Module({
-  imports: [HttpClientModule, DatabaseModule, ConfigModule, ConversationModule],
+  imports: [HttpClientModule, DatabaseModule, ConfigModule, ConversationModule, ListsModule],
   controllers: [WebhookController],
   providers: [WebhookService],
   exports: [WebhookService],

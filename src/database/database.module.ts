@@ -3,8 +3,12 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { ConfigModule, ConfigService } from '../config';
 import { Company } from './models/company.model';
 import { Message } from './models/message.model';
+import { Conversation } from './models/conversation.model';
+import { List } from './models/list.model';
 import { CompanyRepository } from './repositories/company.repository';
 import { MessageRepository } from './repositories/message.repository';
+import { ConversationRepository } from './repositories/conversation.repository';
+import { ListRepository } from './repositories/list.repository';
 
 @Module({
   imports: [
@@ -17,7 +21,7 @@ import { MessageRepository } from './repositories/message.repository';
         username: configService.databaseUsername || 'root',
         password: configService.databasePassword || '',
         database: configService.databaseName || 'waba_dispatcher',
-        models: [Company, Message],
+        models: [Company, Message, Conversation, List],
         autoLoadModels: true,
         synchronize: false, // Never use in production - use migrations instead
         logging: configService.isDevelopment ? console.log : false,
@@ -30,9 +34,9 @@ import { MessageRepository } from './repositories/message.repository';
       }),
       inject: [ConfigService],
     }),
-    SequelizeModule.forFeature([Company, Message]),
+    SequelizeModule.forFeature([Company, Message, Conversation, List]),
   ],
-  providers: [CompanyRepository, MessageRepository],
-  exports: [SequelizeModule, CompanyRepository, MessageRepository],
+  providers: [CompanyRepository, MessageRepository, ConversationRepository, ListRepository],
+  exports: [SequelizeModule, CompanyRepository, MessageRepository, ConversationRepository, ListRepository],
 })
 export class DatabaseModule {}

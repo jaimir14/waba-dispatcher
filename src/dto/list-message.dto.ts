@@ -17,6 +17,10 @@ export class NumberAmount {
 }
 
 export class SendListMessageDto {
+  @IsString()
+  @IsNotEmpty()
+  listId: string; // Required list identifier
+
   @IsArray()
   @IsString({ each: true })
   recipients: string[];

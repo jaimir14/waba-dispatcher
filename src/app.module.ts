@@ -12,6 +12,7 @@ import { DatabaseModule } from './database';
 import { MessagesModule } from './messages';
 import { WebhookModule } from './webhook';
 import { ConversationModule } from './conversation';
+import { ListsModule } from './lists';
 import { ApiKeyMiddleware } from './middleware/api-key.middleware';
 
 @Module({
@@ -22,6 +23,7 @@ import { ApiKeyMiddleware } from './middleware/api-key.middleware';
     MessagesModule,
     WebhookModule,
     ConversationModule,
+    ListsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
