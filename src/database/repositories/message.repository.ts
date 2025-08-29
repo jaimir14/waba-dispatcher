@@ -3,16 +3,35 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Op } from 'sequelize';
 import { Message, MessageStatus } from '../models/message.model';
 import { Company } from '../models/company.model';
+import { ConfigService } from '../../config/config.service';
 
 @Injectable()
 export class MessageRepository {
   constructor(
     @InjectModel(Message)
     private readonly messageModel: typeof Message,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(data: Partial<Message>): Promise<Message> {
+    // Set default pricing if not provided
+    if (!data.pricing) {
+      data.pricing = this.getDefaultPricing();
+    }
+    
     return this.messageModel.create(data);
+  }
+
+  /**
+   * Get default pricing based on environment variables
+   */
+  private getDefaultPricing(): Record<string, any> {
+    return {
+      cost: this.configService.whatsappCostPerMessage,
+      currency: this.configService.whatsappCurrency,
+      created_at: new Date(),
+      source: 'environment_default',
+    };
   }
 
   async findById(id: number): Promise<Message | null> {
@@ -263,22 +282,20 @@ export class MessageRepository {
       }
 
       // Calculate costs based on pricing information
-      if (message.pricing) {
-        const cost = this.calculateMessageCost(message.pricing, message.status);
-        switch (message.status) {
-          case MessageStatus.SENT:
-            costBreakdown.sent += cost;
-            break;
-          case MessageStatus.DELIVERED:
-            costBreakdown.delivered += cost;
-            break;
-          case MessageStatus.READ:
-            costBreakdown.read += cost;
-            break;
-          case MessageStatus.FAILED:
-            costBreakdown.failed += cost;
-            break;
-        }
+      const cost = Number(this.calculateMessageCost(message.pricing, message.status));
+      switch (message.status) {
+        case MessageStatus.SENT:
+          costBreakdown.sent += cost;
+          break;
+        case MessageStatus.DELIVERED:
+          costBreakdown.delivered += cost;
+          break;
+        case MessageStatus.READ:
+          costBreakdown.read += cost;
+          break;
+        case MessageStatus.FAILED:
+          costBreakdown.failed += cost;
+          break;
       }
     });
 
@@ -290,22 +307,171 @@ export class MessageRepository {
   }
 
   private calculateMessageCost(pricing: any, status: MessageStatus): number {
-    // WhatsApp pricing structure (as of 2024):
-    // - Session messages: $0.0399 per message
-    // - Business-initiated messages: $0.0585 per message
-    // - Failed messages: $0.00 (no charge)
-
+    // Simple cost per message - no complex calculations
     if (status === MessageStatus.FAILED) {
       return 0;
     }
 
-    // Default pricing if no specific pricing is available
-    const defaultCost = 0.0399; // Session message cost
-
-    if (pricing && pricing.billable) {
-      return pricing.billable * 0.001; // Convert from micro-units to dollars
+    // Use the cost from pricing if available, otherwise use default
+    if (pricing && pricing.cost !== undefined) {
+      console.log('pricing.cost', pricing.cost);
+      return Number(pricing.cost);
     }
 
-    return defaultCost;
+    // Default cost from environment
+    return this.configService.whatsappCostPerMessage;
+  }
+
+  /**
+   * Get phone number statistics
+   */
+  async getPhoneNumberStats(
+    companyId: string,
+    phoneNumber: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    totalMessages: number;
+    successfulMessages: number;
+    failedMessages: number;
+    deliveredMessages: number;
+    readMessages: number;
+    lastMessageSent: string | null;
+    averageResponseTime: number | null;
+    messageBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+    costBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  }> {
+    // Build date filter
+    const dateFilter: any = {};
+    if (startDate && endDate) {
+      dateFilter.created_at = {
+        [Op.gte]: new Date(startDate),
+        [Op.lte]: new Date(endDate),
+      };
+    } else if (startDate) {
+      dateFilter.created_at = {
+        [Op.gte]: new Date(startDate),
+      };
+    } else if (endDate) {
+      dateFilter.created_at = {
+        [Op.lte]: new Date(endDate),
+      };
+    }
+
+    // Get all messages for the specific phone number
+    const messages = await this.messageModel.findAll({
+      where: {
+        company_id: companyId,
+        to_phone_number: phoneNumber,
+        ...dateFilter,
+      },
+      attributes: ['status', 'pricing', 'created_at', 'delivered_at', 'read_at'],
+      order: [['created_at', 'DESC']],
+    });
+
+    // Calculate breakdowns
+    const messageBreakdown = {
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+    };
+
+    const costBreakdown = {
+      sent: 0,
+      delivered: 0,
+      read: 0,
+      failed: 0,
+    };
+
+    let successfulMessages = 0;
+    let lastMessageSent: string | null = null;
+    let totalResponseTime = 0;
+    let responseTimeCount = 0;
+
+    messages.forEach(message => {
+      // Count messages by status
+      switch (message.status) {
+        case MessageStatus.SENT:
+          messageBreakdown.sent++;
+          successfulMessages++;
+          break;
+        case MessageStatus.DELIVERED:
+          messageBreakdown.delivered++;
+          successfulMessages++;
+          break;
+        case MessageStatus.READ:
+          messageBreakdown.read++;
+          successfulMessages++;
+          break;
+        case MessageStatus.FAILED:
+          messageBreakdown.failed++;
+          break;
+      }
+
+      // Track last message sent
+      if (message.status !== MessageStatus.FAILED && !lastMessageSent) {
+        lastMessageSent = message.created_at.toISOString();
+      }
+
+      // Calculate response time (time between sent and delivered/read)
+      if (message.delivered_at || message.read_at) {
+        const responseTime = message.delivered_at || message.read_at;
+        if (responseTime) {
+          const sentTime = message.created_at;
+          const responseTimeMs = responseTime.getTime() - sentTime.getTime();
+          if (responseTimeMs > 0) {
+            totalResponseTime += responseTimeMs;
+            responseTimeCount++;
+          }
+        }
+      }
+
+      // Calculate costs based on pricing information
+      const cost = Number(this.calculateMessageCost(message.pricing, message.status));
+      switch (message.status) {
+        case MessageStatus.SENT:
+          costBreakdown.sent += cost;
+          break;
+        case MessageStatus.DELIVERED:
+          costBreakdown.delivered += cost;
+          break;
+        case MessageStatus.READ:
+          costBreakdown.read += cost;
+          break;
+        case MessageStatus.FAILED:
+          costBreakdown.failed += cost;
+          break;
+      }
+    });
+
+    // Calculate average response time
+    const averageResponseTime = responseTimeCount > 0 
+      ? Math.round(totalResponseTime / responseTimeCount) 
+      : null;
+
+
+
+    return {
+      totalMessages: messages.length,
+      successfulMessages,
+      failedMessages: messageBreakdown.failed,
+      deliveredMessages: messageBreakdown.delivered,
+      readMessages: messageBreakdown.read,
+      lastMessageSent,
+      averageResponseTime,
+      messageBreakdown,
+      costBreakdown,
+    };
   }
 }

@@ -130,4 +130,13 @@ export class ConfigService {
   get databaseName(): string {
     return this.configService.get<string>('DB_NAME') || 'waba_dispatcher';
   }
+
+  // WhatsApp Pricing Configuration
+  get whatsappCostPerMessage(): number {
+    return this.configService.get<number>('WHATSAPP_COST_PER_MESSAGE', 0.08);
+  }
+
+  get whatsappCurrency(): string {
+    return this.configService.get<string>('WHATSAPP_CURRENCY', 'USD');
+  }
 }

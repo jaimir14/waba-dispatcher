@@ -4,6 +4,7 @@ import {
   Post,
   Get,
   Query,
+  Param,
   Req,
   Logger,
   UsePipes,
@@ -18,6 +19,8 @@ import {
   SendListMessageResponseDto,
   GetMessagesByDayDto,
   GetMessagesByDayResponseDto,
+  GetPhoneNumberStatsDto,
+  PhoneNumberStatsResponseDto,
 } from '../dto';
 
 @Controller('messages')
@@ -94,6 +97,45 @@ export class MessagesController {
       return {
         status: 'failed',
         message: `Failed to get messages: ${error.message}`,
+      };
+    }
+  }
+
+  @Get('stats/:phoneNumber')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getPhoneNumberStats(
+    @Param('phoneNumber') phoneNumber: string,
+    @Req() req: Request,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ): Promise<PhoneNumberStatsResponseDto> {
+    const companyName = (req as any).companyId;
+
+    this.logger.log(
+      `Getting stats for phone number ${phoneNumber} for company ${companyName}`,
+    );
+
+    try {
+      const data = await this.whatsappService.getPhoneNumberStats(
+        companyName,
+        phoneNumber,
+        startDate,
+        endDate,
+      );
+
+      return {
+        status: 'success',
+        message: `Stats retrieved successfully for phone number ${phoneNumber}`,
+        data,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get stats for phone number ${phoneNumber} in company ${companyName}: ${error.message}`,
+      );
+
+      return {
+        status: 'failed',
+        message: `Failed to get phone number stats: ${error.message}`,
       };
     }
   }

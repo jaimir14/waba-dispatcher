@@ -42,3 +42,52 @@ export class MessageStatsResponseDto {
     };
   };
 }
+
+export class GetPhoneNumberStatsDto {
+  @IsString()
+  @IsNotEmpty()
+  phoneNumber: string;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string; // Format: "YYYY-MM-DD"
+
+  @IsOptional()
+  @IsString()
+  endDate?: string; // Format: "YYYY-MM-DD"
+}
+
+export class PhoneNumberStatsDto {
+  phoneNumber: string;
+  totalMessages: number;
+  successfulMessages: number;
+  failedMessages: number;
+  deliveredMessages: number;
+  readMessages: number;
+  lastMessageSent: string | null;
+  averageResponseTime: number | null; // in milliseconds
+  totalCost: number; // 4 decimal places precision
+  currency: string;
+  period: {
+    startDate: string | 'all';
+    endDate: string | 'all';
+  };
+  messageBreakdown: {
+    sent: number;
+    delivered: number;
+    read: number;
+    failed: number;
+  };
+  costBreakdown: {
+    sent: number;
+    delivered: number;
+    read: number;
+    failed: number;
+  };
+}
+
+export class PhoneNumberStatsResponseDto {
+  status: 'success' | 'failed';
+  message: string;
+  data?: PhoneNumberStatsDto;
+}

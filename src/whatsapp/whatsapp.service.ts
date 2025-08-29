@@ -33,6 +33,7 @@ import {
 import { QueueService, WhatsAppSendJobData } from '../queue/queue.service';
 import { ConversationService } from '../conversation/conversation.service';
 import { ListsService } from '../lists/lists.service';
+import { ConversationRepository } from '../database/repositories/conversation.repository';
 
 @Injectable()
 export class WhatsAppService {
@@ -43,6 +44,7 @@ export class WhatsAppService {
     private readonly httpService: HttpService,
     private readonly messageRepository: MessageRepository,
     private readonly companyRepository: CompanyRepository,
+    private readonly conversationRepository: ConversationRepository,
     @InjectModel(Conversation)
     private readonly conversationModel: typeof Conversation,
     @Inject(forwardRef(() => QueueService))
@@ -580,6 +582,8 @@ export class WhatsAppService {
       },
     });
 
+    await this.conversationRepository.updateStep(conversation[0].id, 'welcome');
+    
     // Create template message DTO
     const createMessageDto = new CreateTemplateMessageDto();
     createMessageDto.to = startConversationDto.to;
@@ -959,9 +963,8 @@ export class WhatsAppService {
           // Capture pricing information if available
           if (whatsappMessage.pricing) {
             await this.messageRepository.updatePricing(message.id, {
-              billable: whatsappMessage.pricing.billable,
-              pricing_model: whatsappMessage.pricing.pricing_model,
-              category: whatsappMessage.pricing.category,
+              cost: whatsappMessage.pricing.billable ? whatsappMessage.pricing.billable * 0.001 : this.configService.whatsappCostPerMessage,
+              currency: 'USD',
             });
           }
 
@@ -1246,14 +1249,113 @@ A nombre de: ${reporter}
       companyName,
       month,
       totalMessages: stats.totalMessages,
-      totalCost: Math.round(totalCost * 10000) / 10000, // Round to 4 decimal places
+      totalCost: totalCost,
       currency: 'USD',
       messageBreakdown: stats.messageBreakdown,
       costBreakdown: {
-        sent: Math.round(stats.costBreakdown.sent * 10000) / 10000,
-        delivered: Math.round(stats.costBreakdown.delivered * 10000) / 10000,
-        read: Math.round(stats.costBreakdown.read * 10000) / 10000,
-        failed: Math.round(stats.costBreakdown.failed * 10000) / 10000,
+        sent: stats.costBreakdown.sent,
+        delivered: stats.costBreakdown.delivered,
+        read: stats.costBreakdown.read,
+        failed: stats.costBreakdown.failed,
+      },
+    };
+  }
+
+  /**
+   * Get phone number statistics
+   */
+  async getPhoneNumberStats(
+    companyName: string,
+    phoneNumber: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    phoneNumber: string;
+    totalMessages: number;
+    successfulMessages: number;
+    failedMessages: number;
+    deliveredMessages: number;
+    readMessages: number;
+    lastMessageSent: string | null;
+    averageResponseTime: number | null;
+    totalCost: number;
+    currency: string;
+    period: {
+      startDate: string | 'all';
+      endDate: string | 'all';
+    };
+    messageBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+    costBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  }> {
+    this.logger.log(
+      `Getting phone number stats for ${phoneNumber} in company ${companyName}`,
+    );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
+    // Validate date formats if provided
+    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      throw new BadRequestException(
+        'Start date must be in format YYYY-MM-DD (e.g., 2024-01-01)',
+      );
+    }
+
+    if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      throw new BadRequestException(
+        'End date must be in format YYYY-MM-DD (e.g., 2024-01-01)',
+      );
+    }
+
+    // Get statistics from repository
+    const stats = await this.messageRepository.getPhoneNumberStats(
+      company.id,
+      phoneNumber,
+      startDate,
+      endDate,
+    );
+
+    // Calculate total cost
+    const totalCost =
+      stats.costBreakdown.sent +
+      stats.costBreakdown.delivered +
+      stats.costBreakdown.read +
+      stats.costBreakdown.failed;
+
+    return {
+      phoneNumber,
+      totalMessages: stats.totalMessages,
+      successfulMessages: stats.successfulMessages,
+      failedMessages: stats.failedMessages,
+      deliveredMessages: stats.deliveredMessages,
+      readMessages: stats.readMessages,
+      lastMessageSent: stats.lastMessageSent,
+      averageResponseTime: stats.averageResponseTime,
+      totalCost: totalCost,
+      currency: 'USD',
+      period: {
+        startDate: startDate || 'all',
+        endDate: endDate || 'all',
+      },
+      messageBreakdown: stats.messageBreakdown,
+      costBreakdown: {
+        sent: stats.costBreakdown.sent,
+        delivered: stats.costBreakdown.delivered,
+        read: stats.costBreakdown.read,
+        failed: stats.costBreakdown.failed,
       },
     };
   }

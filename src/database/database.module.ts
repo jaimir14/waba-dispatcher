@@ -36,7 +36,13 @@ import { ListRepository } from './repositories/list.repository';
     }),
     SequelizeModule.forFeature([Company, Message, Conversation, List]),
   ],
-  providers: [CompanyRepository, MessageRepository, ConversationRepository, ListRepository],
+  providers: [
+    ConfigService,
+    CompanyRepository, 
+    MessageRepository, 
+    ConversationRepository, 
+    ListRepository
+  ],
   exports: [SequelizeModule, CompanyRepository, MessageRepository, ConversationRepository, ListRepository],
 })
 export class DatabaseModule {}

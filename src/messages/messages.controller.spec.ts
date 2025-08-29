@@ -29,6 +29,9 @@ describe('MessagesController', () => {
   beforeEach(async () => {
     mockWhatsAppService = {
       sendMessageToMultipleRecipients: jest.fn(),
+      sendListMessage: jest.fn(),
+      getMessagesByDay: jest.fn(),
+      getPhoneNumberStats: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -134,6 +137,117 @@ describe('MessagesController', () => {
       expect(
         mockWhatsAppService.sendMessageToMultipleRecipients,
       ).toHaveBeenCalledWith('different_company', mockSendMessageDto);
+    });
+  });
+
+  describe('getPhoneNumberStats', () => {
+    it('should get phone number stats successfully', async () => {
+      const mockStatsResponse = {
+        phoneNumber: '+50683186803',
+        totalMessages: 10,
+        successfulMessages: 8,
+        failedMessages: 2,
+        deliveredMessages: 6,
+        readMessages: 2,
+        lastMessageSent: '2024-01-15T10:30:00.000Z',
+        averageResponseTime: 5000,
+        totalCost: 1.28, // 16 successful messages × 0.08
+        currency: 'USD',
+        period: {
+          startDate: '2024-01-01',
+          endDate: '2024-01-31'
+        },
+        messageBreakdown: {
+          sent: 8,
+          delivered: 6,
+          read: 2,
+          failed: 2
+        },
+        costBreakdown: {
+          sent: 0.64, // 8 messages × 0.08
+          delivered: 0.48, // 6 messages × 0.08
+          read: 0.16, // 2 messages × 0.08
+          failed: 0.000
+        }
+      };
+
+      mockWhatsAppService.getPhoneNumberStats.mockResolvedValue(mockStatsResponse);
+
+      const req = { companyId: 'test_company' } as any;
+      const result = await controller.getPhoneNumberStats('+50683186803', req, '2024-01-01', '2024-01-31');
+
+      expect(mockWhatsAppService.getPhoneNumberStats).toHaveBeenCalledWith(
+        'test_company',
+        '+50683186803',
+        '2024-01-01',
+        '2024-01-31'
+      );
+      expect(result).toEqual({
+        status: 'success',
+        message: 'Stats retrieved successfully for phone number +50683186803',
+        data: mockStatsResponse
+      });
+    });
+
+    it('should get phone number stats without date filters', async () => {
+      const mockStatsResponse = {
+        phoneNumber: '+50683186803',
+        totalMessages: 25,
+        successfulMessages: 23,
+        failedMessages: 2,
+        deliveredMessages: 18,
+        readMessages: 5,
+        lastMessageSent: '2024-01-20T15:45:00.000Z',
+        averageResponseTime: 3000,
+        totalCost: 1.84, // 23 successful messages × 0.08
+        currency: 'USD',
+        period: {
+          startDate: 'all',
+          endDate: 'all'
+        },
+        messageBreakdown: {
+          sent: 23,
+          delivered: 18,
+          read: 5,
+          failed: 2
+        },
+        costBreakdown: {
+          sent: 1.84, // 23 messages × 0.08
+          delivered: 1.44, // 18 messages × 0.08
+          read: 0.40, // 5 messages × 0.08
+          failed: 0.000
+        }
+      };
+
+      mockWhatsAppService.getPhoneNumberStats.mockResolvedValue(mockStatsResponse);
+
+      const req = { companyId: 'test_company' } as any;
+      const result = await controller.getPhoneNumberStats('+50683186803', req);
+
+      expect(mockWhatsAppService.getPhoneNumberStats).toHaveBeenCalledWith(
+        'test_company',
+        '+50683186803',
+        undefined,
+        undefined
+      );
+      expect(result).toEqual({
+        status: 'success',
+        message: 'Stats retrieved successfully for phone number +50683186803',
+        data: mockStatsResponse
+      });
+    });
+
+    it('should handle service errors gracefully', async () => {
+      const errorMessage = 'Failed to retrieve stats';
+      mockWhatsAppService.getPhoneNumberStats.mockRejectedValue(new Error(errorMessage));
+
+      const req = { companyId: 'companyId' } as any;
+      const result = await controller.getPhoneNumberStats('+50683186803', req);
+
+      expect(result).toEqual({
+        status: 'failed',
+        message: `Failed to get phone number stats: ${errorMessage}`
+      });
     });
   });
 });
