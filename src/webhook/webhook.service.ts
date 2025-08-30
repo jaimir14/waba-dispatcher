@@ -44,6 +44,8 @@ export class WebhookService {
       changesCount: entry.changes.length,
     });
 
+    console.log('entry changes', entry.changes);
+
     for (const change of entry.changes) {
       await this.processChange(change);
     }
