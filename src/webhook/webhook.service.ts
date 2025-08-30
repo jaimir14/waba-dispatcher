@@ -58,21 +58,24 @@ export class WebhookService {
     this.logger.log(`Processing change for field: ${change.field}`);
     
     if (change.field === 'messages') {
-      // Handle incoming messages (including reactions)
-      if (change.value?.messages && change.value.messages.length > 0) {
+      // Check if this is a status update or incoming message
+      if (change.value?.statuses && change.value.statuses.length > 0) {
+        // This is a status update (sent, delivered, read)
+        const status = change.value.statuses[0].status;
+        if (status === 'sent') {
+          await this.processMessageDeliveries(change.value); // sent status should update message status
+        } else if (status === 'delivered') {
+          await this.processMessageDeliveries(change.value);
+        } else if (status === 'read') {
+          await this.processMessageReads(change.value);
+        } else {
+          this.logger.log(`Unhandled status: ${status}`);
+        }
+      } else if (change.value?.messages && change.value.messages.length > 0) {
+        // This is an incoming message (text, reaction, etc.)
         await this.processMessages(change.value);
-      }
-    } else if (change.field === 'message_status') {
-      // Handle status updates
-      const status = change.value?.statuses?.[0]?.status;
-      if (status === 'sent') {
-        await this.processMessages(change.value);
-      } else if (status === 'delivered') {
-        await this.processMessageDeliveries(change.value);
-      } else if (status === 'read') {
-        await this.processMessageReads(change.value);
       } else {
-        this.logger.log(`Unhandled status: ${status}`);
+        this.logger.log(`Unhandled messages change structure`);
       }
     } else {
       this.logger.log(`Unhandled change field: ${change.field}`);
