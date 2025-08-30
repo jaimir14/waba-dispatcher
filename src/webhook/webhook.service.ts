@@ -56,13 +56,24 @@ export class WebhookService {
    */
   private async processChange(change: any): Promise<void> {
     this.logger.log(`Processing change for field: ${change.field}`);
-    const status = change.value?.statuses[0].status;
-    if (change.field === 'messages' && status === 'sent') {
-      await this.processMessages(change.value);
-    } else if (status === 'delivered') {
-      await this.processMessageDeliveries(change.value);
-    } else if (status === 'read') {
-      await this.processMessageReads(change.value);
+    
+    if (change.field === 'messages') {
+      // Handle incoming messages (including reactions)
+      if (change.value?.messages && change.value.messages.length > 0) {
+        await this.processMessages(change.value);
+      }
+    } else if (change.field === 'message_status') {
+      // Handle status updates
+      const status = change.value?.statuses?.[0]?.status;
+      if (status === 'sent') {
+        await this.processMessages(change.value);
+      } else if (status === 'delivered') {
+        await this.processMessageDeliveries(change.value);
+      } else if (status === 'read') {
+        await this.processMessageReads(change.value);
+      } else {
+        this.logger.log(`Unhandled status: ${status}`);
+      }
     } else {
       this.logger.log(`Unhandled change field: ${change.field}`);
     }
@@ -86,7 +97,7 @@ export class WebhookService {
       });
 
       // Process incoming message for conversation flow
-      if (['text', 'reaction'].includes(message.type) && message.text?.body) {
+      if (['text', 'reaction'].includes(message.type) && (message.text?.body || message.reaction?.emoji)) {
         try {
           // Find existing conversation to get company ID
           const conversation =
@@ -111,10 +122,14 @@ export class WebhookService {
           }
 
           // Process the incoming message for conversation flow
+          const messageText = message.type === 'reaction' 
+            ? message.reaction?.emoji || 'reaction'
+            : message.text?.body || '';
+            
           await this.conversationService.processIncomingMessage(
             message.from,
             companyName,
-            message.text?.body || message.reaction?.emoji,
+            messageText,
             message.type === 'reaction',
           );
         } catch (error) {

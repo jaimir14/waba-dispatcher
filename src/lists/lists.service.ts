@@ -138,8 +138,20 @@ export class ListsService {
     this.logger.debug(`Updating list ${listId} status to: ${status}`);
 
     switch (status) {
+      case ListStatus.SENT:
+        await this.listRepository.markAsSent(listId);
+        break;
+      case ListStatus.DELIVERED:
+        await this.listRepository.markAsDelivered(listId);
+        break;
+      case ListStatus.READ:
+        await this.listRepository.markAsRead(listId);
+        break;
       case ListStatus.ACCEPTED:
         await this.listRepository.markAsAccepted(listId);
+        break;
+      case ListStatus.FAILED:
+        await this.listRepository.markAsFailed(listId);
         break;
       case ListStatus.REJECTED:
         await this.listRepository.markAsRejected(listId);
@@ -207,13 +219,13 @@ export class ListsService {
       case 'pending':
         return ListStatus.PENDING;
       case 'sent':
-        return ListStatus.PENDING;
+        return ListStatus.SENT;
       case 'delivered':
-        return ListStatus.ACCEPTED;
+        return ListStatus.DELIVERED;
       case 'read':
-        return ListStatus.ACCEPTED;
+        return ListStatus.READ;
       case 'failed':
-        return ListStatus.REJECTED;
+        return ListStatus.FAILED;
       default:
         return ListStatus.PENDING;
     }

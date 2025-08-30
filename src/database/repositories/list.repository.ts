@@ -80,6 +80,48 @@ export class ListRepository {
   }
 
   /**
+   * Update list status to sent
+   */
+  async markAsSent(listId: string): Promise<void> {
+    await List.update(
+      {
+        status: ListStatus.SENT,
+      },
+      {
+        where: { id: listId },
+      },
+    );
+  }
+
+  /**
+   * Update list status to delivered
+   */
+  async markAsDelivered(listId: string): Promise<void> {
+    await List.update(
+      {
+        status: ListStatus.DELIVERED,
+      },
+      {
+        where: { id: listId },
+      },
+    );
+  }
+
+  /**
+   * Update list status to read
+   */
+  async markAsRead(listId: string): Promise<void> {
+    await List.update(
+      {
+        status: ListStatus.READ,
+      },
+      {
+        where: { id: listId },
+      },
+    );
+  }
+
+  /**
    * Update list status to accepted
    */
   async markAsAccepted(listId: string): Promise<void> {
@@ -87,6 +129,20 @@ export class ListRepository {
       {
         status: ListStatus.ACCEPTED,
         accepted_at: new Date(),
+      },
+      {
+        where: { id: listId },
+      },
+    );
+  }
+
+  /**
+   * Update list status to failed
+   */
+  async markAsFailed(listId: string): Promise<void> {
+    await List.update(
+      {
+        status: ListStatus.FAILED,
       },
       {
         where: { id: listId },

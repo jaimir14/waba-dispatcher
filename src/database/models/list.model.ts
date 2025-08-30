@@ -13,7 +13,11 @@ import { Conversation } from './conversation.model';
 
 export enum ListStatus {
   PENDING = 'pending',
+  SENT = 'sent',
+  DELIVERED = 'delivered',
+  READ = 'read',
   ACCEPTED = 'accepted',
+  FAILED = 'failed',
   REJECTED = 'rejected',
   EXPIRED = 'expired',
 }
