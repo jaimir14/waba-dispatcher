@@ -43,6 +43,18 @@ export class ListRepository {
   }
 
   /**
+   * Find list by external list_id
+   */
+  async findByListId(
+    listId: string,
+  ): Promise<List | null> {
+    return List.findOne({
+      where: {
+        list_id: listId,
+      },
+    });
+  }
+  /**
    * Get all pending lists for a conversation on a specific date
    */
   async getPendingListsByConversationAndDate(

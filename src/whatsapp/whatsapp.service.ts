@@ -891,7 +891,7 @@ export class WhatsAppService {
           },
         });
 
-        if (!conversation || conversation.current_step !== 'accepted') {
+        if (!conversation || conversation.current_step === 'welcome') {
           results.push({
             recipient,
             status: 'failed',
@@ -927,6 +927,7 @@ export class WhatsAppService {
         const message = await this.messageRepository.create({
           company_id: company.id,
           to_phone_number: recipient,
+          list_id: sendListMessageDto.listId, // Add list_id for list messages
           template_name: null, // No template for list messages
           parameters: null,
           status: MessageStatus.PENDING,
@@ -1029,6 +1030,7 @@ export class WhatsAppService {
 
     this.logger.log(
       `List message completed: ${successCount} success, ${failureCount} failed`,
+      response,
     );
 
     return response;

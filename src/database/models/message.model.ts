@@ -59,6 +59,14 @@ export class Message extends Model {
   })
   to_phone_number: string;
 
+  @Index
+  @Column({
+    type: DataType.STRING(255),
+    allowNull: true,
+    comment: 'Reference to the list_id from lists table for list messages',
+  })
+  list_id: string;
+
   @Column({
     type: DataType.STRING(100),
     allowNull: true,

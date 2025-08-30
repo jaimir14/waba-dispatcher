@@ -71,6 +71,14 @@ export class MessageRepository {
     });
   }
 
+  async findByListId(listId: string): Promise<Message[]> {
+    return this.messageModel.findAll({
+      where: { list_id: listId },
+      include: [Company],
+      order: [['created_at', 'DESC']],
+    });
+  }
+
   async updateStatus(
     id: number,
     status: MessageStatus,

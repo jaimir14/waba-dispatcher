@@ -32,6 +32,18 @@ export class ListResponseDto {
   metadata?: Record<string, any>;
   created_at: Date;
   updated_at: Date;
+  messages?: Array<{
+    id: number;
+    conversation_id: string;
+    list_id: string;
+    status: ListStatus;
+    accepted_at?: Date;
+    rejected_at?: Date;
+    expired_at?: Date;
+    metadata?: Record<string, any>;
+    created_at: Date;
+    updated_at: Date;
+  }>;
 }
 
 export class ListQueryDto {

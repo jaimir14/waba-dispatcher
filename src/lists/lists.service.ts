@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ListRepository } from '../database/repositories/list.repository';
+import { MessageRepository } from '../database/repositories/message.repository';
 import { ListStatus } from '../database/models/list.model';
 import { CreateListDto, ListResponseDto, ListQueryDto } from '../dto/list.dto';
 
@@ -9,6 +10,7 @@ export class ListsService {
 
   constructor(
     private readonly listRepository: ListRepository,
+    private readonly messageRepository: MessageRepository,
   ) {}
 
   /**
@@ -81,16 +83,42 @@ export class ListsService {
     } else if (query.status) {
       lists = await this.listRepository.getByStatus(query.status);
     } else if (query.list_id) {
-      const list = await this.listRepository.findByListIdAndConversation(
+      const list = await this.listRepository.findByListId(
         query.list_id,
-        query.conversation_id!,
       );
       lists = list ? [list] : [];
     } else {
       lists = [];
     }
 
-    return lists.map(list => this.mapToListResponseDto(list));
+    // For each list, get the related messages
+    const listsWithMessages = await Promise.all(
+      lists.map(async (list) => {
+        const messages = await this.messageRepository.findByListId(list.list_id);
+        return {
+          ...this.mapToListResponseDto(list),
+          messages: messages.map(msg => ({
+            id: msg.id,
+            conversation_id: msg.to_phone_number, // Use phone number as conversation_id
+            list_id: msg.list_id,
+            status: this.mapMessageStatusToListStatus(msg.status),
+            accepted_at: msg.delivered_at, // Map delivered to accepted
+            rejected_at: null, // Messages don't track rejection
+            expired_at: null, // Messages don't track expiration
+            metadata: {
+              whatsapp_message_id: msg.whatsapp_message_id,
+              error_code: msg.error_code,
+              error_message: msg.error_message,
+              pricing: msg.pricing,
+            },
+            created_at: msg.created_at,
+            updated_at: msg.updated_at,
+          })),
+        };
+      })
+    );
+
+    return listsWithMessages;
   }
 
   /**
@@ -169,5 +197,25 @@ export class ListsService {
       created_at: list.created_at,
       updated_at: list.updated_at,
     };
+  }
+
+  /**
+   * Map MessageStatus to ListStatus
+   */
+  private mapMessageStatusToListStatus(messageStatus: string): ListStatus {
+    switch (messageStatus) {
+      case 'pending':
+        return ListStatus.PENDING;
+      case 'sent':
+        return ListStatus.PENDING;
+      case 'delivered':
+        return ListStatus.ACCEPTED;
+      case 'read':
+        return ListStatus.ACCEPTED;
+      case 'failed':
+        return ListStatus.REJECTED;
+      default:
+        return ListStatus.PENDING;
+    }
   }
 } 
