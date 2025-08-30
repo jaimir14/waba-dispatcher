@@ -57,7 +57,7 @@ export class WebhookService {
   private async processChange(change: any): Promise<void> {
     this.logger.log(`Processing change for field: ${change.field}`);
     const status = change.value?.statuses[0].status;
-    if (change.field === 'messages') {
+    if (change.field === 'messages' && status === 'sent') {
       await this.processMessages(change.value);
     } else if (status === 'delivered') {
       await this.processMessageDeliveries(change.value);
