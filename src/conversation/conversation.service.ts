@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConversationRepository } from '../database/repositories/conversation.repository';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { ListsService } from '../lists/lists.service';
 import { Conversation } from '../database/models/conversation.model';
 
 @Injectable()
@@ -11,6 +12,8 @@ export class ConversationService {
     private readonly conversationRepository: ConversationRepository,
     @Inject(forwardRef(() => WhatsAppService))
     private readonly whatsappService: WhatsAppService,
+    @Inject(forwardRef(() => ListsService))
+    private readonly listsService: ListsService,
   ) {}
 
   /**
@@ -20,6 +23,7 @@ export class ConversationService {
     phoneNumber: string,
     companyName: string,
     messageText: string,
+    isReaction: boolean = false,
   ): Promise<void> {
     this.logger.log(
       `Processing incoming message from ${phoneNumber} for company ${companyName}: "${messageText}"`,
@@ -41,6 +45,9 @@ export class ConversationService {
     // Update session expiration to 24 hours from now (any message extends the session)
     await this.conversationRepository.updateSessionExpiration(conversation.id);
 
+    if(isReaction) {
+      messageText = 'reaction';
+    }
     // Process the message based on conversation status
     await this.handleMessage(conversation, messageText);
   }
@@ -117,7 +124,7 @@ export class ConversationService {
   }
 
   /**
-   * Handle messages when waiting for response (after sending a list)
+   * Handle messages and reactions when waiting for response (after sending a list)
    */
   private async handleWaitingResponseMessage(
     conversation: Conversation,
@@ -126,6 +133,12 @@ export class ConversationService {
     // If user sends "Recibido", mark as accepted and extend session
     if (this.isReceivedResponse(messageText)) {
       await this.handleReceivedResponse(conversation);
+      // Handle list response through ListsService
+      await this.listsService.handleListResponse(
+        conversation.id,
+        conversation.current_step,
+        messageText,
+      );
     } else {
       // Any other message - keep waiting for "Recibido"
       this.logger.log(
@@ -143,7 +156,7 @@ export class ConversationService {
     await this.sendTextMessage(
       conversation.company_id,
       conversation.phone_number,
-      'Este número no está aceptando mensajes por el momento.',
+      'Si necesitas información adicional, puedes escribir a la persona encargada de la lista.',
     );
   }
 
@@ -177,6 +190,7 @@ export class ConversationService {
       'claro',
       'perfecto',
       'entendido',
+      'reaction',
     ];
     return affirmativeWords.includes(text);
   }
@@ -197,7 +211,13 @@ export class ConversationService {
       'vale',
       'entendido',
       'perfecto',
+      'de acuerdo',
+      'claro',
+      'reaction',
     ];
+
+    // remove any special characters and keep spaces
+    text = text.replace(/[^a-zA-Z0-9\s]/g, '').trim();
     return receivedWords.includes(text);
   }
 

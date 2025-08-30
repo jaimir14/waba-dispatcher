@@ -84,7 +84,7 @@ export class WebhookService {
       });
 
       // Process incoming message for conversation flow
-      if (message.type === 'text' && message.text?.body) {
+      if (message.type === 'text' && message.text?.body || message.type === 'reaction') {
         try {
           // Find existing conversation to get company ID
           const conversation =
@@ -112,17 +112,8 @@ export class WebhookService {
           await this.conversationService.processIncomingMessage(
             message.from,
             companyName,
-            message.text.body,
+            message.text?.body || message.reaction?.emoji,
           );
-
-          // Handle list response if conversation is waiting for response
-          if (conversation) {
-            await this.listsService.handleListResponse(
-              conversation.id,
-              conversation.current_step,
-              message.text.body,
-            );
-          }
         } catch (error) {
           this.logger.error(
             `Failed to process incoming message from ${message.from}: ${error.message}`,
