@@ -19,7 +19,7 @@ export class WebhookService {
     private readonly conversationService: ConversationService,
     private readonly conversationRepository: ConversationRepository,
     private readonly listsService: ListsService,
-  ) {}
+  ) { }
 
   /**
    * Process incoming webhook payload from WhatsApp
@@ -56,12 +56,12 @@ export class WebhookService {
    */
   private async processChange(change: any): Promise<void> {
     this.logger.log(`Processing change for field: ${change.field}`);
-
+    const status = change.value?.statuses[0];
     if (change.field === 'messages') {
       await this.processMessages(change.value);
-    } else if (change.field === 'message_deliveries') {
+    } else if (status === 'delivered') {
       await this.processMessageDeliveries(change.value);
-    } else if (change.field === 'message_reads') {
+    } else if (status === 'read') {
       await this.processMessageReads(change.value);
     } else {
       this.logger.log(`Unhandled change field: ${change.field}`);
@@ -86,7 +86,7 @@ export class WebhookService {
       });
 
       // Process incoming message for conversation flow
-      if (message.type === 'text' && message.text?.body || message.type === 'reaction') {
+      if (['text', 'reaction'].includes(message.type) && message.text?.body) {
         try {
           // Find existing conversation to get company ID
           const conversation =
@@ -115,6 +115,7 @@ export class WebhookService {
             message.from,
             companyName,
             message.text?.body || message.reaction?.emoji,
+            message.type === 'reaction',
           );
         } catch (error) {
           this.logger.error(
