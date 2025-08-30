@@ -99,6 +99,7 @@ export class MessageRepository {
         break;
     }
 
+    console.log('updateData', JSON.stringify(updateData, null, 2));
     return this.messageModel.update(updateData, {
       where: { id },
       returning: true,
