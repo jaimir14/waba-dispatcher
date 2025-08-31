@@ -135,7 +135,9 @@ export class WebhookService {
             messageText,
             message.type === 'reaction'
           );
-          this.processMessageAccepted({ messages: [{ id: message.id }] });
+
+          let messageId = message.type === 'reaction' ? message.reaction?.message_id : message.id;
+          this.processMessageAccepted({ messages: [{ id:messageId }] });
         } catch (error) {
           this.logger.error(
             `Failed to process incoming message from ${message.from}: ${error.message}`,
@@ -214,8 +216,7 @@ export class WebhookService {
     }
 
     for (const status of value.messages) {
-      let messageId = status.type === 'reaction' ? status.reaction?.message_id : status.id;
-      await this.updateMessageStatus({id: messageId, status: 'accepted'});
+      await this.updateMessageStatus({...status, status: 'accepted'});
     }
   }
   /**
