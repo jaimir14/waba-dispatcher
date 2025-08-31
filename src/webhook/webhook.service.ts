@@ -208,6 +208,7 @@ export class WebhookService {
    * Process message accepted list
    */
   private async processMessageAccepted(value: any): Promise<void> {
+    console.log('processMessageAccepted', JSON.stringify(value, null, 2));
     if (!value || !value.messages || value.messages.length === 0) {
       return;
     }
