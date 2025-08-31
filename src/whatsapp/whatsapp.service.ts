@@ -1111,6 +1111,11 @@ A nombre de: ${reporter}
       read: number;
       failed: number;
     };
+    lists: {
+      list_id: string;
+      status: string;
+      total_messages: number;
+    }[];
   }> {
     this.logger.log(
       `Getting messages for company ${companyName} for date ${date}`,
@@ -1134,6 +1139,20 @@ A nombre de: ${reporter}
       company.id,
       date,
       status,
+    );
+
+    // Get list data for messages that have list_id
+    const listIds = [...new Set(messages.filter(m => m.list_id).map(m => m.list_id))];
+    const listsData = await Promise.all(
+      listIds.map(async (listId) => {
+        const listMessages = messages.filter(m => m.list_id === listId);
+        const list = await this.listsService.getListById(listId);
+        return {
+          list_id: listId,
+          status: list?.status || 'unknown',
+          total_messages: listMessages.length,
+        };
+      })
     );
 
     // Calculate status breakdown
@@ -1189,6 +1208,7 @@ A nombre de: ${reporter}
       totalMessages: messages.length,
       messages: messageDetails,
       statusBreakdown,
+      lists: listsData,
     };
   }
 

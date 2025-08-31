@@ -42,5 +42,10 @@ export class GetMessagesByDayResponseDto {
       read: number;
       failed: number;
     };
+    lists: {
+      list_id: string;
+      status: string;
+      total_messages: number;
+    }[];
   };
 }
