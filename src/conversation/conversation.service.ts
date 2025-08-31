@@ -214,6 +214,14 @@ export class ConversationService {
       'de acuerdo',
       'claro',
       'reaction',
+      'aceptar',
+      'aceptado',
+      'aceptadas',
+      'aceptados',
+      'correcto',
+      'correcta',
+      'correctas',
+      'correctos',
     ];
 
     // remove any special characters and keep spaces
