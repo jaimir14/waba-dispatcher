@@ -213,9 +213,9 @@ export class WebhookService {
       return;
     }
 
-    this.logger.log(`Processing status change to accepted`);
-
-    await this.updateMessageStatus({...value, status: 'accepted'});
+    for (const status of value.messages) {
+      await this.updateMessageStatus({...status, status: 'accepted'});
+    }
   }
   /**
    * Update message status based on webhook data
