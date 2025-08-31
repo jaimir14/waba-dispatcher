@@ -214,7 +214,8 @@ export class WebhookService {
     }
 
     for (const status of value.messages) {
-      await this.updateMessageStatus({...status, status: 'accepted'});
+      let messageId = status.type === 'reaction' ? status.reaction?.message_id : status.id;
+      await this.updateMessageStatus({id: messageId, status: 'accepted'});
     }
   }
   /**
