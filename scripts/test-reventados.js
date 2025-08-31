@@ -9,7 +9,7 @@ async function testReventados() {
     console.log('🎲 Testing reventados list message...\n');
 
     const reventadosData = {
-      recipients: ['50683186803'],
+      recipients: ['50688776655'],
       listName: 'Lunes',
       reporter: 'Carlos López',
       numbers: [

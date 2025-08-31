@@ -53,7 +53,7 @@ CREATE TABLE messages (
 ### One-to-Many: Consolidated List → Messages
 - **One consolidated list** can have **multiple messages** sent to different phone numbers
 - **Relationship field:** `list_id` in the `messages` table references `list_id` in the `lists` table
-- **Example:** Consolidated list "2076" can have messages sent to phone numbers "50683186803", "50683186804", etc.
+- **Example:** Consolidated list "2076" can have messages sent to phone numbers "50688776655", "50683186804", etc.
 
 ## Data Flow
 
@@ -99,7 +99,7 @@ GET /lists?list_id=2076
   "messages": [
     {
       "id": 123,
-      "conversation_id": "50683186803",
+      "conversation_id": "50688776655",
       "list_id": "2076",
       "status": "delivered",
       "accepted_at": "2025-08-30T05:13:08.000Z",

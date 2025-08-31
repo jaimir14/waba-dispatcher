@@ -192,7 +192,7 @@ export class ConversationRepository {
   }
 
   /**
-   * Check if conversation session expires within the next X hours
+   * Check if conversation session expires within the next X hours, return true if the conversation does not e
    */
   async isSessionExpiringSoon(
     phoneNumber: string,
@@ -207,13 +207,16 @@ export class ConversationRepository {
         phone_number: phoneNumber,
         company_id: companyId,
         is_active: true,
-        session_expires_at: {
-          [Op.lt]: thresholdTime,
-        },
       },
     });
 
-    return !!conversation;
+    // If conversation doesn't exist, treat as already expired
+    if (!conversation) {
+      return true;
+    }
+
+    // If conversation exists, check if it expires soon
+    return conversation.session_expires_at < thresholdTime;
   }
 
   /**

@@ -114,7 +114,7 @@ GET /messages/stats/:phoneNumber
 
 ### Parameters
 - **Path Parameters:**
-  - `phoneNumber` (required): The phone number to get statistics for (e.g., +50683186803)
+  - `phoneNumber` (required): The phone number to get statistics for (e.g., +50688776655)
 
 - **Query Parameters:**
   - `startDate` (optional): Start date for filtering in YYYY-MM-DD format
@@ -124,13 +124,13 @@ GET /messages/stats/:phoneNumber
 
 ```bash
 # Get all-time stats for a phone number
-GET /messages/stats/+50683186803
+GET /messages/stats/+50688776655
 
 # Get stats for a specific date range
-GET /messages/stats/+50683186803?startDate=2024-01-01&endDate=2024-01-31
+GET /messages/stats/+50688776655?startDate=2024-01-01&endDate=2024-01-31
 
 # Get stats from a specific date onwards
-GET /messages/stats/+50683186803?startDate=2024-01-01
+GET /messages/stats/+50688776655?startDate=2024-01-01
 ```
 
 ### Response Format
@@ -138,9 +138,9 @@ GET /messages/stats/+50683186803?startDate=2024-01-01
 ```json
 {
   "status": "success",
-  "message": "Stats retrieved successfully for phone number +50683186803",
+  "message": "Stats retrieved successfully for phone number +50688776655",
   "data": {
-    "phoneNumber": "+50683186803",
+    "phoneNumber": "+50688776655",
     "totalMessages": 25,
     "successfulMessages": 23,
     "failedMessages": 2,

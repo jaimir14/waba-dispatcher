@@ -13,7 +13,7 @@ async function testPricing() {
     const sendResponse = await axios.post(
       `${API_BASE_URL}/conversations/start`,
       {
-        to: '50683186803',
+        to: '50688776655',
         templateName: 'inicio_conversacion',
         parameters: ['Usuario'],
       },

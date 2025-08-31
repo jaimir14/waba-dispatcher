@@ -48,7 +48,7 @@ describe('MessageRepository', () => {
     it('should set default pricing when creating a message without pricing', async () => {
       const messageData = {
         company_id: 'test-company-id',
-        to_phone_number: '+50683186803',
+        to_phone_number: '+50688776655',
         template_name: 'test_template',
         status: MessageStatus.PENDING,
       };
@@ -86,7 +86,7 @@ describe('MessageRepository', () => {
 
       const messageData = {
         company_id: 'test-company-id',
-        to_phone_number: '+50683186803',
+        to_phone_number: '+50688776655',
         template_name: 'test_template',
         status: MessageStatus.PENDING,
         pricing: existingPricing,

@@ -34,7 +34,7 @@ describe('WhatsAppSendProcessor', () => {
   describe('handleSendWhatsAppMessage', () => {
     const jobData: WhatsAppSendJobData = {
       companyId: 'test-company',
-      to: '+50683186803',
+      to: '+50688776655',
       templateName: 'test_template',
       parameters: ['param1', 'param2'],
     };
@@ -61,7 +61,7 @@ describe('WhatsAppSendProcessor', () => {
       expect(mockWhatsAppService.sendTemplateMessage).toHaveBeenCalledWith(
         'test-company',
         expect.objectContaining({
-          to: '+50683186803',
+          to: '+50688776655',
           template_name: 'test_template',
           parameters: expect.arrayContaining([
             expect.objectContaining({ text: 'param1' }),
@@ -73,7 +73,7 @@ describe('WhatsAppSendProcessor', () => {
       expect(result).toEqual({
         success: true,
         messageId: 1,
-        recipient: '+50683186803',
+        recipient: '+50688776655',
         templateName: 'test_template',
       });
     });
@@ -99,7 +99,7 @@ describe('WhatsAppSendProcessor', () => {
       expect(mockWhatsAppService.sendTemplateMessage).toHaveBeenCalledWith(
         'test-company',
         expect.objectContaining({
-          to: '+50683186803',
+          to: '+50688776655',
           template_name: 'test_template',
           parameters: undefined,
         }),
@@ -108,7 +108,7 @@ describe('WhatsAppSendProcessor', () => {
       expect(result).toEqual({
         success: true,
         messageId: 1,
-        recipient: '+50683186803',
+        recipient: '+50688776655',
         templateName: 'test_template',
       });
     });
@@ -126,7 +126,7 @@ describe('WhatsAppSendProcessor', () => {
       expect(mockWhatsAppService.sendTemplateMessage).toHaveBeenCalledWith(
         'test-company',
         expect.objectContaining({
-          to: '+50683186803',
+          to: '+50688776655',
           template_name: 'test_template',
         }),
       );
@@ -153,7 +153,7 @@ describe('WhatsAppSendProcessor', () => {
       expect(mockWhatsAppService.sendTemplateMessage).toHaveBeenCalledWith(
         'test-company',
         expect.objectContaining({
-          to: '+50683186803',
+          to: '+50688776655',
           template_name: 'test_template',
           parameters: [],
         }),

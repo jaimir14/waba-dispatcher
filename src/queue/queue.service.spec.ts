@@ -53,7 +53,7 @@ describe('QueueService', () => {
   describe('addWhatsAppSendJob', () => {
     const jobData: WhatsAppSendJobData = {
       companyId: 'test-company',
-      to: '+50683186803',
+      to: '+50688776655',
       templateName: 'test_template',
       parameters: ['param1', 'param2'],
     };
@@ -127,7 +127,7 @@ describe('QueueService', () => {
       {
         data: {
           companyId: 'test-company',
-          to: '+50683186803',
+          to: '+50688776655',
           templateName: 'test_template',
           parameters: ['param1'],
         } as WhatsAppSendJobData,

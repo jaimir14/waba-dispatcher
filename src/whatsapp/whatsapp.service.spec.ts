@@ -32,7 +32,7 @@ describe('WhatsAppService', () => {
   const mockMessage: Partial<Message> = {
     id: 1,
     company_id: 'test-company-id',
-    to_phone_number: '+50683186803',
+    to_phone_number: '+50688776655',
     template_name: 'inicio_conversacion',
     parameters: [{ type: 'text', text: 'Alfredo Alvarado' }],
     status: MessageStatus.PENDING,
@@ -114,7 +114,7 @@ describe('WhatsAppService', () => {
       templateName: 'inicio_conversacion',
       language: 'es',
       parameters: ['Alfredo Alvarado'],
-      recipients: ['+50683186803', '+50688888888'],
+      recipients: ['+50688776655', '+50688888888'],
     };
 
     beforeEach(() => {
@@ -136,7 +136,7 @@ describe('WhatsAppService', () => {
       expect(result.status).toBe('success');
       expect(result.message).toBe('Sent to 2/2 recipients');
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].recipient).toBe('+50683186803');
+      expect(result.results[0].recipient).toBe('+50688776655');
       expect(result.results[0].status).toBe('sent');
       expect(result.results[1].recipient).toBe('+50688888888');
       expect(result.results[1].status).toBe('sent');
@@ -190,7 +190,7 @@ describe('WhatsAppService', () => {
     it('should handle single recipient', async () => {
       const singleRecipientDto: SendMessageDto = {
         ...sendMessageDto,
-        recipients: ['+50683186803'],
+        recipients: ['+50688776655'],
       };
 
       const result = await service.sendMessageToMultipleRecipients(
@@ -208,7 +208,7 @@ describe('WhatsAppService', () => {
       const noParamsDto: SendMessageDto = {
         templateName: 'simple_template',
         language: 'es',
-        recipients: ['+50683186803'],
+        recipients: ['+50688776655'],
       };
 
       const result = await service.sendMessageToMultipleRecipients(
@@ -236,7 +236,7 @@ describe('WhatsAppService', () => {
         1,
         expect.objectContaining({
           company_id: 'test-company-id',
-          to_phone_number: '+50683186803',
+          to_phone_number: '+50688776655',
           template_name: 'inicio_conversacion',
           status: MessageStatus.PENDING,
         }),
@@ -260,7 +260,7 @@ describe('WhatsAppService', () => {
       templateName: 'inicio_conversacion',
       language: 'es',
       parameters: ['Alfredo Alvarado'],
-      recipients: ['+50683186803', '+50688888888'],
+      recipients: ['+50688776655', '+50688888888'],
     };
 
     it('should queue messages to multiple recipients successfully', async () => {
@@ -274,7 +274,7 @@ describe('WhatsAppService', () => {
       expect(result.status).toBe('success');
       expect(result.message).toBe('Queued 2/2 recipients');
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].recipient).toBe('+50683186803');
+      expect(result.results[0].recipient).toBe('+50688776655');
       expect(result.results[0].status).toBe('sent');
       expect(result.results[0].messageId).toBe('queued');
       expect(result.results[1].recipient).toBe('+50688888888');
@@ -284,7 +284,7 @@ describe('WhatsAppService', () => {
       expect(mockQueueService.addWhatsAppSendJob).toHaveBeenCalledTimes(2);
       expect(mockQueueService.addWhatsAppSendJob).toHaveBeenNthCalledWith(1, {
         companyId: 'test-company-id',
-        to: '+50683186803',
+        to: '+50688776655',
         templateName: 'inicio_conversacion',
         parameters: ['Alfredo Alvarado'],
         priority: 0,
@@ -339,7 +339,7 @@ describe('WhatsAppService', () => {
       templateName: 'inicio_conversacion',
       language: 'es',
       parameters: ['Alfredo Alvarado'],
-      recipients: ['+50683186803', '+50688888888'],
+      recipients: ['+50688776655', '+50688888888'],
     };
 
     it('should bulk queue messages to multiple recipients successfully', async () => {
@@ -353,7 +353,7 @@ describe('WhatsAppService', () => {
       expect(result.status).toBe('success');
       expect(result.message).toBe('Bulk queued 2/2 recipients');
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].recipient).toBe('+50683186803');
+      expect(result.results[0].recipient).toBe('+50688776655');
       expect(result.results[0].status).toBe('sent');
       expect(result.results[0].messageId).toBe('queued');
 
@@ -361,7 +361,7 @@ describe('WhatsAppService', () => {
         {
           data: {
             companyId: 'test-company-id',
-            to: '+50683186803',
+            to: '+50688776655',
             templateName: 'inicio_conversacion',
             parameters: ['Alfredo Alvarado'],
             priority: 0,

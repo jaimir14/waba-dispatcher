@@ -11,7 +11,7 @@ describe('MessagesController', () => {
     templateName: 'inicio_conversacion',
     language: 'es',
     parameters: ['Alfredo Alvarado'],
-    recipients: ['+50683186803'],
+    recipients: ['+50688776655'],
   };
 
   const mockResponse: SendMessageResponseDto = {
@@ -19,7 +19,7 @@ describe('MessagesController', () => {
     message: 'Sent to 1/1 recipients',
     results: [
       {
-        recipient: '+50683186803',
+        recipient: '+50688776655',
         status: 'sent',
         messageId: '123',
       },
@@ -69,14 +69,14 @@ describe('MessagesController', () => {
     it('should handle multiple recipients', async () => {
       const multipleRecipientsDto: SendMessageDto = {
         ...mockSendMessageDto,
-        recipients: ['+50683186803', '+50688888888', '+50699999999'],
+        recipients: ['+50688776655', '+50688888888', '+50699999999'],
       };
 
       const multipleResponse: SendMessageResponseDto = {
         status: 'success',
         message: 'Sent to 3/3 recipients',
         results: [
-          { recipient: '+50683186803', status: 'sent', messageId: '123' },
+          { recipient: '+50688776655', status: 'sent', messageId: '123' },
           { recipient: '+50688888888', status: 'sent', messageId: '124' },
           { recipient: '+50699999999', status: 'sent', messageId: '125' },
         ],
@@ -100,7 +100,7 @@ describe('MessagesController', () => {
         status: 'partial',
         message: 'Sent to 2/3 recipients',
         results: [
-          { recipient: '+50683186803', status: 'sent', messageId: '123' },
+          { recipient: '+50688776655', status: 'sent', messageId: '123' },
           { recipient: '+50688888888', status: 'sent', messageId: '124' },
           {
             recipient: '+50699999999',
@@ -116,7 +116,7 @@ describe('MessagesController', () => {
 
       const multipleRecipientsDto: SendMessageDto = {
         ...mockSendMessageDto,
-        recipients: ['+50683186803', '+50688888888', '+50699999999'],
+        recipients: ['+50688776655', '+50688888888', '+50699999999'],
       };
 
       const req = { companyId: 'test_company' } as any;
@@ -143,7 +143,7 @@ describe('MessagesController', () => {
   describe('getPhoneNumberStats', () => {
     it('should get phone number stats successfully', async () => {
       const mockStatsResponse = {
-        phoneNumber: '+50683186803',
+        phoneNumber: '+50688776655',
         totalMessages: 10,
         successfulMessages: 8,
         failedMessages: 2,
@@ -174,24 +174,24 @@ describe('MessagesController', () => {
       mockWhatsAppService.getPhoneNumberStats.mockResolvedValue(mockStatsResponse);
 
       const req = { companyId: 'test_company' } as any;
-      const result = await controller.getPhoneNumberStats('+50683186803', req, '2024-01-01', '2024-01-31');
+      const result = await controller.getPhoneNumberStats('+50688776655', req, '2024-01-01', '2024-01-31');
 
       expect(mockWhatsAppService.getPhoneNumberStats).toHaveBeenCalledWith(
         'test_company',
-        '+50683186803',
+        '+50688776655',
         '2024-01-01',
         '2024-01-31'
       );
       expect(result).toEqual({
         status: 'success',
-        message: 'Stats retrieved successfully for phone number +50683186803',
+        message: 'Stats retrieved successfully for phone number +50688776655',
         data: mockStatsResponse
       });
     });
 
     it('should get phone number stats without date filters', async () => {
       const mockStatsResponse = {
-        phoneNumber: '+50683186803',
+        phoneNumber: '+50688776655',
         totalMessages: 25,
         successfulMessages: 23,
         failedMessages: 2,
@@ -222,17 +222,17 @@ describe('MessagesController', () => {
       mockWhatsAppService.getPhoneNumberStats.mockResolvedValue(mockStatsResponse);
 
       const req = { companyId: 'test_company' } as any;
-      const result = await controller.getPhoneNumberStats('+50683186803', req);
+      const result = await controller.getPhoneNumberStats('+50688776655', req);
 
       expect(mockWhatsAppService.getPhoneNumberStats).toHaveBeenCalledWith(
         'test_company',
-        '+50683186803',
+        '+50688776655',
         undefined,
         undefined
       );
       expect(result).toEqual({
         status: 'success',
-        message: 'Stats retrieved successfully for phone number +50683186803',
+        message: 'Stats retrieved successfully for phone number +50688776655',
         data: mockStatsResponse
       });
     });
@@ -242,7 +242,7 @@ describe('MessagesController', () => {
       mockWhatsAppService.getPhoneNumberStats.mockRejectedValue(new Error(errorMessage));
 
       const req = { companyId: 'companyId' } as any;
-      const result = await controller.getPhoneNumberStats('+50683186803', req);
+      const result = await controller.getPhoneNumberStats('+50688776655', req);
 
       expect(result).toEqual({
         status: 'failed',

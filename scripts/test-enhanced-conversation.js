@@ -8,7 +8,7 @@ async function testEnhancedConversation() {
   try {
     console.log('🔄 Testing Enhanced Conversation Flow...\n');
 
-    const testPhoneNumber = '50683186803';
+    const testPhoneNumber = '50688776655';
 
     // Step 1: Start conversation with template
     console.log('📱 Step 1: Starting conversation with template...');
@@ -53,7 +53,7 @@ async function testEnhancedConversation() {
                   value: {
                     messaging_product: 'whatsapp',
                     metadata: {
-                      display_phone_number: '50683186803',
+                      display_phone_number: '50688776655',
                       phone_number_id: '123456789',
                     },
                     contacts: [
@@ -142,7 +142,7 @@ async function testEnhancedConversation() {
                   value: {
                     messaging_product: 'whatsapp',
                     metadata: {
-                      display_phone_number: '50683186803',
+                      display_phone_number: '50688776655',
                       phone_number_id: '123456789',
                     },
                     contacts: [

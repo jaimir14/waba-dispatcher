@@ -10,7 +10,7 @@ async function testListMessage() {
 
     const listMessageData = {
       listId: 'test-list-001', // Required list identifier
-      recipients: ['50683186803'],
+      recipients: ['50688776655'],
       listName: 'Lotería Nacional',
       reporter: 'Juan Pérez',
       numbers: [
