@@ -224,6 +224,8 @@ export class ListsService {
         return ListStatus.DELIVERED;
       case 'read':
         return ListStatus.READ;
+      case 'accepted':
+        return ListStatus.ACCEPTED;
       case 'failed':
         return ListStatus.FAILED;
       default:
