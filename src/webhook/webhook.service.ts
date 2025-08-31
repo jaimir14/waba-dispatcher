@@ -133,8 +133,9 @@ export class WebhookService {
             message.from,
             companyName,
             messageText,
-            message.type === 'reaction',
+            message.type === 'reaction'
           );
+          this.processMessageAccepted({ messages: [{ id: message.id }] });
         } catch (error) {
           this.logger.error(
             `Failed to process incoming message from ${message.from}: ${error.message}`,
@@ -204,6 +205,18 @@ export class WebhookService {
   }
 
   /**
+   * Process message accepted list
+   */
+  private async processMessageAccepted(value: any): Promise<void> {
+    if (!value || !value.messages || value.messages.length === 0) {
+      return;
+    }
+
+    this.logger.log(`Processing status change to accepted`);
+
+    await this.updateMessageStatus({...value, status: 'accepted'});
+  }
+  /**
    * Update message status based on webhook data
    */
   private async updateMessageStatus(
@@ -255,6 +268,9 @@ export class WebhookService {
               category: status.pricing.category,
             };
           }
+          break;
+        case 'accepted':
+          newStatus = MessageStatus.ACCEPTED;
           break;
         case 'failed':
           newStatus = MessageStatus.FAILED;
