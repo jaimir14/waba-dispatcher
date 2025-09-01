@@ -21,6 +21,8 @@ import {
   GetMessagesByDayResponseDto,
   GetPhoneNumberStatsDto,
   PhoneNumberStatsResponseDto,
+  SendInformationalMessageDto,
+  SendInformationalMessageResponseDto,
 } from '../dto';
 
 @Controller('messages')
@@ -32,19 +34,36 @@ export class MessagesController {
   @Post('send')
   @UsePipes(new ValidationPipe({ transform: true }))
   async sendMessage(
-    @Body() sendMessageDto: SendMessageDto,
+    @Body() sendMessageDto: SendMessageDto | SendInformationalMessageDto,
     @Req() req: Request,
-  ): Promise<SendMessageResponseDto> {
+  ): Promise<SendMessageResponseDto | SendInformationalMessageResponseDto> {
     const companyName = (req as any).companyId;
 
-    this.logger.log(
-      `Sending message to ${sendMessageDto.recipients.length} recipients for company ${companyName}`,
-    );
+    // Check if this is an informational message (has 'message' property)
+    if ('message' in sendMessageDto && 'type' in sendMessageDto) {
+      const informationalDto = sendMessageDto as SendInformationalMessageDto;
+      
+      this.logger.log(
+        `Sending informational message to ${informationalDto.recipients.length} recipients for company ${companyName}`,
+      );
 
-    return this.whatsappService.sendMessageToMultipleRecipients(
-      companyName,
-      sendMessageDto,
-    );
+      return this.whatsappService.sendInformationalMessage(
+        companyName,
+        informationalDto,
+      );
+    } else {
+      // Handle as template message
+      const templateDto = sendMessageDto as SendMessageDto;
+      
+      this.logger.log(
+        `Sending template message to ${templateDto.recipients.length} recipients for company ${companyName}`,
+      );
+
+      return this.whatsappService.sendMessageToMultipleRecipients(
+        companyName,
+        templateDto,
+      );
+    }
   }
 
   @Post('send-list')

@@ -29,6 +29,8 @@ import {
   SendListMessageDto,
   SendListMessageResponseDto,
   MessageDetailDto,
+  SendInformationalMessageDto,
+  SendInformationalMessageResponseDto,
 } from '../dto';
 import { QueueService, WhatsAppSendJobData } from '../queue/queue.service';
 import { ConversationService } from '../conversation/conversation.service';
@@ -1379,6 +1381,118 @@ A nombre de: ${reporter}
         read: stats.costBreakdown.read,
         failed: stats.costBreakdown.failed,
       },
+    };
+  }
+
+  /**
+   * Send informational message to multiple recipients
+   * This method bypasses conversation requirements and sends directly
+   */
+  async sendInformationalMessage(
+    companyName: string,
+    sendInformationalMessageDto: SendInformationalMessageDto,
+  ): Promise<SendInformationalMessageResponseDto> {
+    this.logger.log(
+      `Sending informational message to ${sendInformationalMessageDto.recipients.length} recipients for company ${companyName}`,
+    );
+
+    // Get company credentials
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
+    if (!company.isActive) {
+      throw new BadRequestException(`Company ${companyName} is not active`);
+    }
+
+    const results: MessageResultDto[] = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    // Send message to each recipient
+    for (const recipient of sendInformationalMessageDto.recipients) {
+      try {
+        // Create message record in database
+        const message = await this.messageRepository.create({
+          company_id: company.id,
+          to_phone_number: recipient,
+          template_name: null, // No template for informational messages
+          parameters: null,
+          status: MessageStatus.PENDING,
+        });
+
+        // Prepare WhatsApp API payload for text message
+        const whatsappPayload = {
+          messaging_product: 'whatsapp',
+          to: recipient,
+          type: 'text',
+          text: {
+            body: sendInformationalMessageDto.message,
+          },
+        };
+
+        // Send message to WhatsApp API
+        const response = await this.httpService.sendMessage(
+          company.settings?.metaPhoneNumberId ||
+            this.configService.metaPhoneNumberId,
+          whatsappPayload,
+        );
+
+        // Update message with WhatsApp ID and mark as sent
+        const responseData = response.data;
+        await this.messageRepository.updateWhatsAppId(
+          message.id,
+          responseData.messages[0].id,
+        );
+        await this.messageRepository.updateStatus(message.id, MessageStatus.SENT);
+
+        this.logger.log(
+          `Informational message ${message.id} sent successfully to ${recipient}. WhatsApp ID: ${responseData.messages[0].id}`,
+        );
+
+        results.push({
+          recipient,
+          status: 'sent',
+          messageId: message.id.toString(),
+        });
+
+        successCount++;
+      } catch (error) {
+        this.logger.error(
+          `Failed to send informational message to ${recipient}: ${error.message}`,
+          error.stack,
+        );
+
+        results.push({
+          recipient,
+          status: 'failed',
+          error: error.response?.data?.error?.message || error.message,
+        });
+
+        failureCount++;
+      }
+    }
+
+    // Determine overall status
+    let status: 'success' | 'failed' | 'partial';
+    let message: string;
+
+    if (failureCount === 0) {
+      status = 'success';
+      message = `All ${successCount} informational messages sent successfully`;
+    } else if (successCount === 0) {
+      status = 'failed';
+      message = `All ${failureCount} informational messages failed to send`;
+    } else {
+      status = 'partial';
+      message = `${successCount} messages sent successfully, ${failureCount} failed`;
+    }
+
+    return {
+      status,
+      message,
+      results,
     };
   }
 }

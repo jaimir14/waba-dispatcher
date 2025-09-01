@@ -4,7 +4,7 @@ import {
   WebhookEntryChangeValueStatus,
 } from '../dto/webhook.dto';
 import { MessageRepository } from '../database/repositories/message.repository';
-import { MessageStatus } from '../database/models/message.model';
+import { Message, MessageStatus } from '../database/models/message.model';
 import { ConversationService } from '../conversation/conversation.service';
 import { ConversationRepository } from '../database/repositories/conversation.repository';
 import { ListsService } from '../lists/lists.service';
@@ -136,7 +136,10 @@ export class WebhookService {
             message.type === 'reaction'
           );
 
-          let messageId = message.type === 'reaction' ? message.reaction?.message_id : message.id;
+          // Get the last message sent to this user before processing the accepted status
+          const lastMessageSent = await this.getLastMessageSentToUser(message.from);
+          
+          let messageId = message.type === 'reaction' ? message.reaction?.message_id : lastMessageSent?.message?.id;
           this.processMessageAccepted({ messages: [{ id:messageId }] });
         } catch (error) {
           this.logger.error(
@@ -353,6 +356,82 @@ export class WebhookService {
     } catch (error) {
       this.logger.error('Error verifying webhook signature:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get the last message sent to a specific phone number
+   */
+  private async getLastMessageSentToUser(phoneNumber: string): Promise<{
+    message: Message | null;
+    details: {
+      hasMessages: boolean;
+      totalMessages: number;
+      lastMessageId: number | null;
+      lastMessageTemplate: string | null;
+      lastMessageStatus: string | null;
+      lastMessageSentAt: Date | null;
+      lastMessageType: 'template' | 'text' | 'list' | null;
+    };
+  }> {
+    try {
+      const messages = await this.messageRepository.findByPhoneNumber(phoneNumber);
+      
+      if (messages.length === 0) {
+        return {
+          message: null,
+          details: {
+            hasMessages: false,
+            totalMessages: 0,
+            lastMessageId: null,
+            lastMessageTemplate: null,
+            lastMessageStatus: null,
+            lastMessageSentAt: null,
+            lastMessageType: null,
+          },
+        };
+      }
+
+      const lastMessage = messages[0]; // First message is the most recent due to DESC ordering
+      
+      // Determine message type based on available fields
+      let messageType: 'template' | 'text' | 'list' | null = null;
+      if (lastMessage.template_name) {
+        messageType = 'template';
+      } else if (lastMessage.list_id) {
+        messageType = 'list';
+      } else {
+        messageType = 'text';
+      }
+
+      return {
+        message: lastMessage,
+        details: {
+          hasMessages: true,
+          totalMessages: messages.length,
+          lastMessageId: lastMessage.id,
+          lastMessageTemplate: lastMessage.template_name,
+          lastMessageStatus: lastMessage.status,
+          lastMessageSentAt: lastMessage.sent_at,
+          lastMessageType: messageType,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error getting last message for ${phoneNumber}: ${error.message}`,
+      );
+      return {
+        message: null,
+        details: {
+          hasMessages: false,
+          totalMessages: 0,
+          lastMessageId: null,
+          lastMessageTemplate: null,
+          lastMessageStatus: null,
+          lastMessageSentAt: null,
+          lastMessageType: null,
+        },
+      };
     }
   }
 }

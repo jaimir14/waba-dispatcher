@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   ArrayNotEmpty,
   IsOptional,
+  IsEnum,
 } from 'class-validator';
 
 export class SendMessageDto {
@@ -26,6 +27,21 @@ export class SendMessageDto {
   recipients: string[];
 }
 
+export class SendInformationalMessageDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  recipients: string[];
+
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+
+  @IsEnum(['text', 'template'])
+  @IsOptional()
+  type: 'text' | 'template' = 'text';
+}
+
 export class SendMessageResponseDto {
   @IsString()
   @IsNotEmpty()
@@ -37,6 +53,20 @@ export class SendMessageResponseDto {
 
   @IsArray()
   results: MessageResultDto[];
+}
+
+export class SendInformationalMessageResponseDto {
+  @IsString()
+  @IsNotEmpty()
+  status: 'success' | 'failed' | 'partial';
+
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+
+  @IsOptional()
+  @IsArray()
+  results?: MessageResultDto[];
 }
 
 export class MessageResultDto {
