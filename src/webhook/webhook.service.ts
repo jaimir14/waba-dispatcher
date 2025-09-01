@@ -139,7 +139,7 @@ export class WebhookService {
           // Get the last message sent to this user before processing the accepted status
           const lastMessageSent = await this.getLastMessageSentToUser(message.from);
           
-          let messageId = message.type === 'reaction' ? message.reaction?.message_id : lastMessageSent?.message?.id;
+          let messageId = message.type === 'reaction' ? message.reaction?.message_id : lastMessageSent?.message?.whatsapp_message_id;
           this.processMessageAccepted({ messages: [{ id:messageId }] });
         } catch (error) {
           this.logger.error(
