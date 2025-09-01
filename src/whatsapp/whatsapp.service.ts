@@ -1055,7 +1055,7 @@ export class WhatsAppService {
 
     if (hasReventados) {
       // Reventados format
-      message = `*Lista: Reventado día ${listName}*
+      message = `*Lista: ${listName}*
 A nombre de: ${reporter}
 
 \`\`\``;
@@ -1091,6 +1091,7 @@ A nombre de: ${reporter}
       message += `\n\n${customMessage}`;
     }
 
+    message +='\n\nPara aceptar la lista, por favor responder con la palabra OK';
     return message;
   }
 

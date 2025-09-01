@@ -360,20 +360,30 @@ export class MessageRepository {
       failed: number;
     };
   }> {
+    // Create dates and add 6 hours using timestamp arithmetic
+    const localeStartDate = new Date(startDate + 'T00:00:00');
+    const localeEndDate = new Date(endDate + 'T23:59:59');
+    
+    // Add 6 hours using timestamp arithmetic (this will properly handle day rollover)
+    localeStartDate.setTime(localeStartDate.getTime());
+    localeEndDate.setTime(localeEndDate.getTime());
+    
+    console.log('localeStartDate',  new Date(localeStartDate));
+    console.log('localeEndDate', new Date(localeEndDate));
     // Build date filter
     const dateFilter: any = {};
     if (startDate && endDate) {
       dateFilter.created_at = {
-        [Op.gte]: new Date(startDate),
-        [Op.lte]: new Date(endDate),
+        [Op.gte]: new Date(localeStartDate),
+        [Op.lte]: new Date(localeEndDate),
       };
     } else if (startDate) {
       dateFilter.created_at = {
-        [Op.gte]: new Date(startDate),
+        [Op.gte]: new Date(localeStartDate),
       };
     } else if (endDate) {
       dateFilter.created_at = {
-        [Op.lte]: new Date(endDate),
+        [Op.lte]: new Date(localeEndDate),
       };
     }
 
