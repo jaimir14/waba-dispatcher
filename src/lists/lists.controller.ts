@@ -8,7 +8,9 @@ import {
   Param,
   HttpStatus,
   HttpCode,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ListsService } from './lists.service';
 import { CreateListDto, UpdateListStatusDto, ListQueryDto, ListResponseDto } from '../dto/list.dto';
 import { ListStatus } from '../database/models/list.model';
@@ -24,8 +26,9 @@ export class ListsController {
   }
 
   @Get()
-  async getLists(@Query() query: ListQueryDto): Promise<ListResponseDto[]> {
-    return this.listsService.getLists(query);
+  async getLists(@Query() query: ListQueryDto, @Req() req: Request): Promise<ListResponseDto[]> {
+    const companyName = (req as any).companyId;
+    return this.listsService.getLists(query, companyName);
   }
 
   @Get(':id')

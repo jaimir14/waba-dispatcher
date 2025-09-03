@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ListRepository } from '../database/repositories/list.repository';
 import { MessageRepository } from '../database/repositories/message.repository';
+import { CompanyRepository } from '../database/repositories/company.repository';
 import { ListStatus } from '../database/models/list.model';
 import { CreateListDto, ListResponseDto, ListQueryDto } from '../dto/list.dto';
 
@@ -11,6 +12,7 @@ export class ListsService {
   constructor(
     private readonly listRepository: ListRepository,
     private readonly messageRepository: MessageRepository,
+    private readonly companyRepository: CompanyRepository,
   ) {}
 
   /**
@@ -69,7 +71,7 @@ export class ListsService {
   /**
    * Get lists by query parameters
    */
-  async getLists(query: ListQueryDto): Promise<ListResponseDto[]> {
+  async getLists(query: ListQueryDto, companyName?: string): Promise<ListResponseDto[]> {
     this.logger.debug(`Getting lists with query: ${JSON.stringify(query)}`);
 
     let lists;
@@ -91,10 +93,17 @@ export class ListsService {
       lists = [];
     }
 
+    // Get company ID if company name is provided
+    let companyId: string | undefined;
+    if (companyName) {
+      const company = await this.companyRepository.findByName(companyName);
+      companyId = company?.id;
+    }
+
     // For each list, get the related messages
     const listsWithMessages = await Promise.all(
       lists.map(async (list) => {
-        const messages = await this.messageRepository.findByListId(list.list_id);
+        const messages = await this.messageRepository.findByListId(list.list_id, companyId);
         return {
           ...this.mapToListResponseDto(list),
           messages: messages.map(msg => ({

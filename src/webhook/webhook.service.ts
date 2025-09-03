@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import {
   WebhookPayload,
   WebhookEntryChangeValueStatus,
@@ -8,6 +8,7 @@ import { Message, MessageStatus } from '../database/models/message.model';
 import { ConversationService } from '../conversation/conversation.service';
 import { ConversationRepository } from '../database/repositories/conversation.repository';
 import { ListsService } from '../lists/lists.service';
+import { WebhookQueueService } from './webhook-queue.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class WebhookService {
     private readonly conversationService: ConversationService,
     private readonly conversationRepository: ConversationRepository,
     private readonly listsService: ListsService,
+    private readonly webhookQueueService: WebhookQueueService,
   ) { }
 
   /**
@@ -101,51 +103,12 @@ export class WebhookService {
 
       // Process incoming message for conversation flow
       if (['text', 'reaction'].includes(message.type) && (message.text?.body || message.reaction?.emoji)) {
-        try {
-          // Find existing conversation to get company ID
-          const conversation =
-            await this.conversationRepository.findByPhoneNumber(message.from);
-
-          let companyName: string;
-          if (conversation) {
-            // Use existing conversation's company
-            const company = await this.conversationService['whatsappService'][
-              'companyRepository'
-            ].findById(conversation.company_id);
-            companyName = company?.name || 'testcompany';
-            this.logger.log(
-              `Found existing conversation for ${message.from} with company ${companyName}`,
-            );
-          } else {
-            // New conversation - use default company
-            companyName = 'testcompany';
-            this.logger.log(
-              `New conversation for ${message.from}, using default company ${companyName}`,
-            );
-          }
-
-          // Process the incoming message for conversation flow
-          const messageText = message.type === 'reaction' 
-            ? message.reaction?.emoji || 'reaction'
-            : message.text?.body || '';
-            
-          await this.conversationService.processIncomingMessage(
-            message.from,
-            companyName,
-            messageText,
-            message.type === 'reaction'
-          );
-
-          // Get the last message sent to this user before processing the accepted status
-          const lastMessageSent = await this.getLastMessageSentToUser(message.from);
-          
-          let messageId = message.type === 'reaction' ? message.reaction?.message_id : lastMessageSent?.message?.whatsapp_message_id;
-          this.processMessageAccepted({ messages: [{ id:messageId }] });
-        } catch (error) {
-          this.logger.error(
-            `Failed to process incoming message from ${message.from}: ${error.message}`,
-          );
-        }
+        // Queue incoming message processing
+        await this.webhookQueueService.addWebhookJob({
+          type: 'incoming-message',
+          data: { message },
+          priority: 1,
+        });
       } else {
         // Handle missing or invalid message content
         try {
@@ -190,7 +153,11 @@ export class WebhookService {
     );
 
     for (const status of value.statuses) {
-      await this.updateMessageStatus(status);
+      await this.webhookQueueService.addWebhookJob({
+        type: 'status-update',
+        data: { status },
+        priority: 2,
+      });
     }
   }
 
@@ -205,7 +172,11 @@ export class WebhookService {
     this.logger.log(`Processing ${value.statuses.length} read status updates`);
 
     for (const status of value.statuses) {
-      await this.updateMessageStatus(status);
+      await this.webhookQueueService.addWebhookJob({
+        type: 'status-update',
+        data: { status },
+        priority: 2,
+      });
     }
   }
 
@@ -219,7 +190,11 @@ export class WebhookService {
     }
 
     for (const status of value.messages) {
-      await this.updateMessageStatus({...status, status: 'accepted'});
+      await this.webhookQueueService.addWebhookJob({
+        type: 'message-accepted',
+        data: { messageId: status.id },
+        priority: 2,
+      });
     }
   }
   /**
@@ -433,5 +408,71 @@ export class WebhookService {
         },
       };
     }
+  }
+
+  // Queue job processing methods
+  async processIncomingMessageJob(data: { message: any }): Promise<void> {
+    const { message } = data;
+    
+    try {
+      // Find existing conversation to get company ID
+      const conversation =
+        await this.conversationRepository.findByPhoneNumber(message.from);
+
+      let companyName: string;
+      if (conversation) {
+        // Use existing conversation's company
+        const company = await this.conversationService['whatsappService'][
+          'companyRepository'
+        ].findById(conversation.company_id);
+        companyName = company?.name || 'testcompany';
+        this.logger.log(
+          `Found existing conversation for ${message.from} with company ${companyName}`,
+        );
+      } else {
+        // New conversation - use default company
+        companyName = 'testcompany';
+        this.logger.log(
+          `New conversation for ${message.from}, using default company ${companyName}`,
+        );
+      }
+
+      // Process the incoming message for conversation flow
+      const messageText = message.type === 'reaction' 
+        ? message.reaction?.emoji || 'reaction'
+        : message.text?.body || '';
+        
+      await this.conversationService.processIncomingMessage(
+        message.from,
+        companyName,
+        messageText,
+        message.type === 'reaction'
+      );
+
+      // Get the last message sent to this user before processing the accepted status
+      const lastMessageSent = await this.getLastMessageSentToUser(message.from);
+      
+      let messageId = message.type === 'reaction' ? message.reaction?.message_id : lastMessageSent?.message?.whatsapp_message_id;
+      if (messageId) {
+        await this.webhookQueueService.addWebhookJob({
+          type: 'message-accepted',
+          data: { messageId },
+          priority: 2,
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to process incoming message from ${message.from}: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async processStatusUpdateJob(data: { status: any }): Promise<void> {
+    await this.updateMessageStatus(data.status);
+  }
+
+  async processMessageAcceptedJob(data: { messageId: string }): Promise<void> {
+    await this.updateMessageStatus({ id: data.messageId, status: 'accepted' });
   }
 }

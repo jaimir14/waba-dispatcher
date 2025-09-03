@@ -2,12 +2,25 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue, JobOptions } from 'bull';
 import { ConfigService } from '../config/config.service';
+import { SendListMessageDto } from '../dto/list-message.dto';
 
 export interface WhatsAppSendJobData {
   companyId: string;
   to: string;
   templateName: string;
   parameters?: any[];
+  priority?: number;
+}
+export interface ListMessageJobData {
+  companyName: string;
+  sendListMessageDto: SendListMessageDto;
+  recipient: string;
+  priority?: number;
+}
+
+export interface WebhookJobData {
+  type: 'incoming-message' | 'status-update' | 'message-accepted';
+  data: any;
   priority?: number;
 }
 
@@ -17,6 +30,7 @@ export class QueueService {
 
   constructor(
     @InjectQueue('whatsapp-send') private whatsappSendQueue: Queue,
+    @InjectQueue('list-message-send') private listMessageQueue: Queue,
     private readonly configService: ConfigService,
   ) {}
 
@@ -118,4 +132,87 @@ export class QueueService {
     await this.whatsappSendQueue.empty();
     this.logger.log('WhatsApp send queue cleared');
   }
+
+  async addListMessageJob(
+    data: ListMessageJobData,
+    options?: Partial<JobOptions>,
+  ): Promise<void> {
+    const jobOptions: JobOptions = {
+      attempts: this.configService.queueDefaultJobAttempts,
+      delay: data.priority === 1 ? 0 : this.configService.queueDefaultJobDelay,
+      backoff: {
+        type: 'exponential',
+        delay: this.configService.queueDefaultJobBackoffDelay,
+      },
+      priority: data.priority || 0,
+      ...options,
+    };
+
+    try {
+      const job = await this.listMessageQueue.add(
+        'send-list-message',
+        data,
+        jobOptions,
+      );
+
+      this.logger.log(
+        `List message job added: ${job.id} for ${data.recipient} (list: ${data.sendListMessageDto.listId})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to add list message job for ${data.recipient}: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async addBulkListMessageJobs(
+    jobs: Array<{ data: ListMessageJobData; options?: Partial<JobOptions> }>,
+  ): Promise<void> {
+    const formattedJobs = jobs.map(({ data, options }) => ({
+      name: 'send-list-message',
+      data,
+      opts: {
+        attempts: this.configService.queueDefaultJobAttempts,
+        delay: data.priority === 1 ? 0 : this.configService.queueDefaultJobDelay,
+        backoff: {
+          type: 'exponential',
+          delay: this.configService.queueDefaultJobBackoffDelay,
+        },
+        priority: data.priority || 0,
+        ...options,
+      },
+    }));
+
+    try {
+      await this.listMessageQueue.addBulk(formattedJobs);
+      this.logger.log(`Added ${jobs.length} list message jobs to queue`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to add bulk list message jobs: ${error.message}`,
+      );
+      throw error;
+    }
+  }
+
+  async getListMessageQueueStats() {
+    return await this.listMessageQueue.getJobCounts();
+  }
+
+  async pauseListMessageQueue(): Promise<void> {
+    await this.listMessageQueue.pause();
+    this.logger.log('List message queue paused');
+  }
+
+  async resumeListMessageQueue(): Promise<void> {
+    await this.listMessageQueue.resume();
+    this.logger.log('List message queue resumed');
+  }
+
+  async clearListMessageQueue(): Promise<void> {
+    await this.listMessageQueue.empty();
+    this.logger.log('List message queue cleared');
+  }
+
+
 }

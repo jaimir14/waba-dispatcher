@@ -34,15 +34,20 @@ export class MessageRepository {
     };
   }
 
-  async findById(id: number): Promise<Message | null> {
-    return this.messageModel.findByPk(id, {
+  async findById(id: number, companyId?: string): Promise<Message | null> {
+    const whereClause = companyId ? { id, company_id: companyId } : { id };
+    return this.messageModel.findOne({
+      where: whereClause,
       include: [Company],
     });
   }
 
-  async findByWhatsAppId(whatsappMessageId: string): Promise<Message | null> {
+  async findByWhatsAppId(whatsappMessageId: string, companyId?: string): Promise<Message | null> {
+    const whereClause = companyId 
+      ? { whatsapp_message_id: whatsappMessageId, company_id: companyId }
+      : { whatsapp_message_id: whatsappMessageId };
     return this.messageModel.findOne({
-      where: { whatsapp_message_id: whatsappMessageId },
+      where: whereClause,
       include: [Company],
     });
   }
@@ -55,25 +60,23 @@ export class MessageRepository {
     });
   }
 
-  async findByStatus(status: MessageStatus): Promise<Message[]> {
+  async findByPhoneNumber(phoneNumber: string, companyId?: string): Promise<Message[]> {
+    const whereClause = companyId 
+      ? { to_phone_number: phoneNumber, company_id: companyId }
+      : { to_phone_number: phoneNumber };
     return this.messageModel.findAll({
-      where: { status },
+      where: whereClause,
       include: [Company],
       order: [['created_at', 'DESC']],
     });
   }
 
-  async findByPhoneNumber(phoneNumber: string): Promise<Message[]> {
+  async findByListId(listId: string, companyId?: string): Promise<Message[]> {
+    const whereClause = companyId 
+      ? { list_id: listId, company_id: companyId }
+      : { list_id: listId };
     return this.messageModel.findAll({
-      where: { to_phone_number: phoneNumber },
-      include: [Company],
-      order: [['created_at', 'DESC']],
-    });
-  }
-
-  async findByListId(listId: string): Promise<Message[]> {
-    return this.messageModel.findAll({
-      where: { list_id: listId },
+      where: whereClause,
       include: [Company],
       order: [['created_at', 'DESC']],
     });

@@ -11,6 +11,7 @@ import { ConfigModule, ConfigService } from '../config';
 import { HttpClientModule } from '../http';
 import { QueueService } from '../queue/queue.service';
 import { WhatsAppSendProcessor } from '../queue/processors/whatsapp-send.processor';
+import { ListMessageSendProcessor } from '../queue/processors/list-message-send.processor';
 import { ListsModule } from '../lists/lists.module';
 
 @Module({
@@ -59,6 +60,24 @@ import { ListsModule } from '../lists/lists.module';
       }),
       inject: [ConfigService],
     }),
+    BullModule.registerQueueAsync({
+      name: 'list-message-send',
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        defaultJobOptions: {
+          attempts: configService.queueDefaultJobAttempts,
+          delay: configService.queueDefaultJobDelay,
+          backoff: {
+            type: 'exponential',
+            delay: configService.queueDefaultJobBackoffDelay,
+          },
+          removeOnComplete: 100,
+          removeOnFail: 50,
+        },
+      }),
+      inject: [ConfigService],
+    }),
+
   ],
   providers: [
     WhatsAppService,
@@ -66,6 +85,7 @@ import { ListsModule } from '../lists/lists.module';
     CompanyRepository,
     QueueService,
     WhatsAppSendProcessor,
+    ListMessageSendProcessor,
   ],
   exports: [WhatsAppService, QueueService],
 })

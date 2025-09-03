@@ -236,8 +236,8 @@ export class WhatsAppService {
   /**
    * Get message by ID
    */
-  async getMessage(id: number): Promise<Message | null> {
-    return this.messageRepository.findById(id);
+  async getMessage(id: number, companyId?: string): Promise<Message | null> {
+    return this.messageRepository.findById(id, companyId);
   }
 
   /**
@@ -249,13 +249,6 @@ export class WhatsAppService {
       throw new BadRequestException(`Company ${companyName} not found`);
     }
     return this.messageRepository.findByCompanyId(company.id);
-  }
-
-  /**
-   * Get messages by status
-   */
-  async getMessagesByStatus(status: MessageStatus): Promise<Message[]> {
-    return this.messageRepository.findByStatus(status);
   }
 
   /**
@@ -881,135 +874,45 @@ export class WhatsAppService {
     let successCount = 0;
     let failureCount = 0;
 
-    // Process each recipient
-    for (const recipient of sendListMessageDto.recipients) {
-      try {
-        // Check if conversation exists and is accepted
-        const conversation = await this.conversationModel.findOne({
-          where: {
-            company_id: company.id,
-            phone_number: recipient,
-            is_active: true,
-          },
+    // Queue jobs for each recipient instead of processing them synchronously
+    const queueJobs = sendListMessageDto.recipients.map(recipient => ({
+      data: {
+        companyName,
+        sendListMessageDto,
+        recipient,
+        priority: 1, // High priority for list messages
+      },
+    }));
+
+    try {
+      await this.queueService.addBulkListMessageJobs(queueJobs);
+      this.logger.log(`Added ${queueJobs.length} list message jobs to queue for list ${sendListMessageDto.listId}`);
+      
+      // Return success with queued status
+      sendListMessageDto.recipients.forEach(recipient => {
+        results.push({
+          recipient,
+          status: 'sent', // Return as sent since successfully queued
+          messageId: undefined,
         });
+      });
 
-        if (!conversation || conversation.current_step === 'welcome') {
-          results.push({
-            recipient,
-            status: 'failed',
-            error: 'Conversation not accepted',
-          });
-          failureCount++;
-          continue;
-        }
-
-        // Create or update list with pending status
-        try {
-          await this.listsService.createOrUpdateList({
-            list_id: sendListMessageDto.listId,
-            conversation_id: conversation.id,
-            metadata: {
-              listName: sendListMessageDto.listName,
-              reporter: sendListMessageDto.reporter,
-              totalAmount,
-              hasReventados,
-              ...(hasReventados && {
-                normalTotal,
-                reventadosTotal,
-              }),
-            },
-          });
-          this.logger.log(`List ${sendListMessageDto.listId} created/updated with pending status for conversation ${conversation.id}`);
-        } catch (error) {
-          this.logger.error(`Failed to create/update list ${sendListMessageDto.listId}: ${error.message}`);
-          // Continue with message sending even if list creation fails
-        }
-
-        // Create message record in database
-        const message = await this.messageRepository.create({
-          company_id: company.id,
-          to_phone_number: recipient,
-          list_id: sendListMessageDto.listId, // Add list_id for list messages
-          template_name: null, // No template for list messages
-          parameters: null,
-          status: MessageStatus.PENDING,
-        });
-
-        try {
-          // Prepare WhatsApp API payload for text message
-          const whatsappPayload = {
-            messaging_product: 'whatsapp',
-            to: recipient,
-            type: 'text',
-            text: {
-              body: formattedMessage,
-            },
-          };
-
-          // Send message to WhatsApp API
-          const response = await this.httpService.sendMessage(
-            company.settings?.metaPhoneNumberId ||
-              this.configService.metaPhoneNumberId,
-            whatsappPayload,
-          );
-
-          // Update message with WhatsApp ID and mark as sent
-          const responseData = response.data;
-          const whatsappMessage = responseData.messages[0];
-          
-          await this.messageRepository.updateWhatsAppId(
-            message.id,
-            whatsappMessage.id,
-          );
-          await this.messageRepository.updateStatus(message.id, MessageStatus.SENT);
-          
-          // Capture pricing information if available
-          if (whatsappMessage.pricing) {
-            await this.messageRepository.updatePricing(message.id, {
-              cost: whatsappMessage.pricing.billable ? whatsappMessage.pricing.billable * 0.001 : this.configService.whatsappCostPerMessage,
-              currency: 'USD',
-            });
-          }
-
-          // Mark conversation as waiting for response
-          await this.conversationService.markAsWaitingResponse(recipient, companyName);
-
-          results.push({
-            recipient,
-            status: 'sent',
-            messageId: message.id.toString(),
-          });
-
-          successCount++;
-          this.logger.log(`List message sent successfully to ${recipient}`);
-        } catch (error) {
-          this.logger.error(
-            `Failed to send list message to ${recipient}: ${error.message}`,
-          );
-
-          // Mark message as failed
-          await this.messageRepository.markAsFailed(
-            message.id,
-            error.response?.data?.error?.code || 'UNKNOWN_ERROR',
-            error.response?.data?.error?.message || error.message,
-          );
-
-          results.push({
-            recipient,
-            status: 'failed',
-            error: error.message,
-          });
-
-          failureCount++;
-        }
-      } catch (error) {
+      successCount = sendListMessageDto.recipients.length;
+      failureCount = 0;
+    } catch (error) {
+      this.logger.error(`Failed to queue list message jobs: ${error.message}`);
+      
+      // Return failed for all recipients if queueing fails
+      sendListMessageDto.recipients.forEach(recipient => {
         results.push({
           recipient,
           status: 'failed',
-          error: error.message,
+          error: `Failed to queue message: ${error.message}`,
         });
-        failureCount++;
-      }
+      });
+
+      successCount = 0;
+      failureCount = sendListMessageDto.recipients.length;
     }
 
     const response: SendListMessageResponseDto = {
@@ -1036,6 +939,172 @@ export class WhatsAppService {
     );
 
     return response;
+  }
+
+  /**
+   * Send list message to a single recipient (for queue processing)
+   */
+  async sendListMessageToRecipient(
+    companyName: string,
+    sendListMessageDto: SendListMessageDto,
+    recipient: string,
+  ): Promise<{
+    recipient: string;
+    status: 'sent' | 'failed';
+    messageId?: string;
+    error?: string;
+  }> {
+    this.logger.log(
+      `Sending list message "${sendListMessageDto.listName}" to ${recipient} for company ${companyName}`,
+    );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new Error(`Company ${companyName} not found`);
+    }
+
+    if (!company.isActive) {
+      throw new Error(`Company ${companyName} is not active`);
+    }
+
+    // Calculate totals
+    const hasReventados = sendListMessageDto.numbers.some(item => item.reventadoAmount !== undefined);
+    
+    let totalAmount = 0;
+    let normalTotal = 0;
+    let reventadosTotal = 0;
+
+    if (hasReventados) {
+      // Calculate separate totals for reventados format
+      normalTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
+      reventadosTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + (item.reventadoAmount || 0), 0);
+      totalAmount = normalTotal + reventadosTotal;
+    } else {
+      // Regular format
+      totalAmount = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
+    }
+
+    // Format the message
+    const formattedMessage = this.formatListMessage(sendListMessageDto, totalAmount);
+
+    try {
+      // Check if conversation exists and is accepted
+      const conversation = await this.conversationModel.findOne({
+        where: {
+          company_id: company.id,
+          phone_number: recipient,
+          is_active: true,
+        },
+      });
+
+      if (!conversation || conversation.current_step === 'welcome') {
+        return {
+          recipient,
+          status: 'failed',
+          error: 'Conversation not accepted',
+        };
+      }
+
+      // Create or update list with pending status
+      try {
+        await this.listsService.createOrUpdateList({
+          list_id: sendListMessageDto.listId,
+          conversation_id: conversation.id,
+          metadata: {
+            listName: sendListMessageDto.listName,
+            reporter: sendListMessageDto.reporter,
+            totalAmount,
+            hasReventados,
+            ...(hasReventados && {
+              normalTotal,
+              reventadosTotal,
+            }),
+          },
+        });
+        this.logger.log(`List ${sendListMessageDto.listId} created/updated with pending status for conversation ${conversation.id}`);
+      } catch (error) {
+        this.logger.error(`Failed to create/update list ${sendListMessageDto.listId}: ${error.message}`);
+        // Continue with message sending even if list creation fails
+      }
+
+      // Create message record in database
+      const message = await this.messageRepository.create({
+        company_id: company.id,
+        to_phone_number: recipient,
+        list_id: sendListMessageDto.listId, // Add list_id for list messages
+        template_name: null, // No template for list messages
+        parameters: null,
+        status: MessageStatus.PENDING,
+      });
+
+      // Prepare WhatsApp API payload for text message
+      const whatsappPayload = {
+        messaging_product: 'whatsapp',
+        to: recipient,
+        type: 'text',
+        text: {
+          body: formattedMessage,
+        },
+      };
+
+      // Send message to WhatsApp API
+      const response = await this.httpService.sendMessage(
+        company.settings?.metaPhoneNumberId ||
+          this.configService.metaPhoneNumberId,
+        whatsappPayload,
+      );
+
+      // Update message with WhatsApp ID and mark as sent
+      const responseData = response.data;
+      const whatsappMessage = responseData.messages[0];
+      
+      await this.messageRepository.updateWhatsAppId(
+        message.id,
+        whatsappMessage.id,
+      );
+      await this.messageRepository.updateStatus(message.id, MessageStatus.SENT);
+      
+      // Capture pricing information if available
+      if (whatsappMessage.pricing) {
+        await this.messageRepository.updatePricing(message.id, {
+          cost: whatsappMessage.pricing.billable ? whatsappMessage.pricing.billable * 0.001 : this.configService.whatsappCostPerMessage,
+          currency: 'USD',
+        });
+      }
+
+      // Mark conversation as waiting for response
+      await this.conversationService.markAsWaitingResponse(recipient, companyName);
+
+      this.logger.log(`List message sent successfully to ${recipient}`);
+      return {
+        recipient,
+        status: 'sent',
+        messageId: message.id.toString(),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to send list message to ${recipient}: ${error.message}`,
+      );
+
+      // Find the message record to mark it as failed
+      const messages = await this.messageRepository.findByListId(sendListMessageDto.listId, company.id);
+      const message = messages.find(m => m.to_phone_number === recipient);
+
+      if (message) {
+        await this.messageRepository.markAsFailed(
+          message.id,
+          error.response?.data?.error?.code || 'UNKNOWN_ERROR',
+          error.response?.data?.error?.message || error.message,
+        );
+      }
+
+      return {
+        recipient,
+        status: 'failed',
+        error: error.message,
+      };
+    }
   }
 
   /**

@@ -7,10 +7,24 @@ import { Queue, JobOptions } from 'bull';
 describe('QueueService', () => {
   let service: QueueService;
   let mockQueue: jest.Mocked<Queue>;
+  let mockListMessageQueue: jest.Mocked<Queue>;
   let mockConfigService: jest.Mocked<ConfigService>;
 
   beforeEach(async () => {
     mockQueue = {
+      add: jest.fn(),
+      addBulk: jest.fn(),
+      getWaiting: jest.fn(),
+      getActive: jest.fn(),
+      getCompleted: jest.fn(),
+      getFailed: jest.fn(),
+      getDelayed: jest.fn(),
+      pause: jest.fn(),
+      resume: jest.fn(),
+      empty: jest.fn(),
+    } as any;
+
+    mockListMessageQueue = {
       add: jest.fn(),
       addBulk: jest.fn(),
       getWaiting: jest.fn(),
@@ -35,6 +49,10 @@ describe('QueueService', () => {
         {
           provide: getQueueToken('whatsapp-send'),
           useValue: mockQueue,
+        },
+        {
+          provide: getQueueToken('list-message-send'),
+          useValue: mockListMessageQueue,
         },
         {
           provide: ConfigService,
