@@ -68,7 +68,6 @@ export class WhatsAppService {
     );
 
     // Get company credentials
-    console.log('companyId', companyId);
     const company = await this.companyRepository.findById(companyId);
     if (!company) {
       throw new BadRequestException(`Company ${companyId} not found`);
@@ -844,6 +843,18 @@ export class WhatsAppService {
       throw new BadRequestException(`Company ${companyName} is not active`);
     }
 
+    const conversation = await this.conversationModel.findOne({
+      where: {
+        company_id: company.id,
+        phone_number: sendListMessageDto.recipients[0],
+        is_active: true,
+      },
+    });
+
+    if(conversation && conversation.current_step === 'welcome') {
+      throw new BadRequestException(`Conversation ${conversation.id} is not accepted`);
+    }
+
     // Calculate totals
     const hasReventados = sendListMessageDto.numbers.some(item => item.reventadoAmount !== undefined);
     
@@ -1014,6 +1025,7 @@ export class WhatsAppService {
           metadata: {
             listName: sendListMessageDto.listName,
             reporter: sendListMessageDto.reporter,
+            contactName: recipient, // Use phone number as contact name for now
             totalAmount,
             hasReventados,
             ...(hasReventados && {
@@ -1114,7 +1126,7 @@ export class WhatsAppService {
     sendListMessageDto: SendListMessageDto,
     totalAmount: number,
   ): string {
-    const { listName, reporter, numbers, customMessage } = sendListMessageDto;
+    const { listName, reporter, numbers, customMessage, date } = sendListMessageDto;
 
     // Check if this is a reventados format
     const hasReventados = numbers.some(item => item.reventadoAmount !== undefined);
@@ -1124,7 +1136,7 @@ export class WhatsAppService {
 
     if (hasReventados) {
       // Reventados format
-      message = `*Lista: ${listName}*
+      message = `*Lista: ${listName} - ${date}*
 A nombre de: ${reporter}
 
 \`\`\``;
@@ -1219,10 +1231,17 @@ A nombre de: ${reporter}
       listIds.map(async (listId) => {
         const listMessages = messages.filter(m => m.list_id === listId);
         const list = await this.listsService.getListById(listId);
+        
+        // Extract draw category information from list metadata
+        const drawCategoryName = list?.metadata?.drawCategoryName || 'Sin categoría';
+        const drawCategoryId = list?.metadata?.drawCategoryId || null;
+        
         return {
           list_id: listId,
           status: list?.status || 'unknown',
           total_messages: listMessages.length,
+          drawCategoryName,
+          drawCategoryId,
         };
       })
     );
@@ -1272,6 +1291,7 @@ A nombre de: ${reporter}
       readAt: message.read_at?.toISOString() || null,
       createdAt: message.created_at.toISOString(),
       updatedAt: message.updated_at.toISOString(),
+      listId: message.list_id,
     }));
 
     return {

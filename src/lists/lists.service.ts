@@ -75,7 +75,18 @@ export class ListsService {
     this.logger.debug(`Getting lists with query: ${JSON.stringify(query)}`);
 
     let lists;
-    if (query.conversation_id && query.status) {
+    if (query.list_ids) {
+      // Parse comma-separated list IDs
+      const listIds = query.list_ids.split(',').map(id => id.trim()).filter(id => id.length > 0);
+      lists = await this.listRepository.getByListIds(listIds);
+    } else if (query.date) {
+      // Parse the date string (expected format: YYYY-MM-DD)
+      const targetDate = new Date(query.date);
+      const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() + 1);
+      
+      lists = await this.listRepository.getByDateRange(startOfDay, endOfDay);
+    } else if (query.conversation_id && query.status) {
       lists = await this.listRepository.getByStatusAndConversation(
         query.status,
         query.conversation_id,

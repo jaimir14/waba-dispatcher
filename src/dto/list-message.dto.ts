@@ -28,6 +28,10 @@ export class SendListMessageDto {
   @IsString()
   @IsNotEmpty()
   listName: string;
+  
+  @IsString()
+  @IsNotEmpty()
+  date: string;
 
   @IsString()
   @IsNotEmpty()

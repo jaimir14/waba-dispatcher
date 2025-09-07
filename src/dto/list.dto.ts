@@ -58,4 +58,12 @@ export class ListQueryDto {
   @IsOptional()
   @IsString()
   list_id?: string;
+
+  @IsOptional()
+  @IsString()
+  date?: string;
+
+  @IsOptional()
+  @IsString()
+  list_ids?: string; // Comma-separated list of IDs
 } 

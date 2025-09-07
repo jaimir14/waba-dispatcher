@@ -328,6 +328,24 @@ export class ListRepository {
   }
 
   /**
+   * Get lists by multiple list IDs
+   */
+  async getByListIds(listIds: string[]): Promise<List[]> {
+    if (listIds.length === 0) {
+      return [];
+    }
+
+    return List.findAll({
+      where: {
+        list_id: {
+          [Op.in]: listIds,
+        },
+      },
+      order: [['created_at', 'DESC']],
+    });
+  }
+
+  /**
    * Get lists by date range
    */
   async getByDateRange(

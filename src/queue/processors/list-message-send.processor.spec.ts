@@ -43,6 +43,7 @@ describe('ListMessageSendProcessor', () => {
           { number: '01', amount: 100 },
           { number: '02', amount: 200 },
         ],
+        date: '2025-01-09',
       },
       priority: 1,
     };

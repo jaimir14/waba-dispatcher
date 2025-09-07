@@ -46,6 +46,8 @@ export class GetMessagesByDayResponseDto {
       list_id: string;
       status: string;
       total_messages: number;
+      drawCategoryName?: string;
+      drawCategoryId?: number;
     }[];
   };
 }
