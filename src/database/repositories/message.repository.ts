@@ -417,83 +417,375 @@ export class MessageRepository {
     };
 
     let successfulMessages = 0;
-    let lastMessageSent: string | null = null;
-    let totalResponseTime = 0;
-    let responseTimeCount = 0;
+    let failedMessages = 0;
+    let deliveredMessages = 0;
+    let readMessages = 0;
 
-    messages.forEach(message => {
-      // Count messages by status
+    // Calculate response times for average
+    const responseTimes: number[] = [];
+
+    for (const message of messages) {
+      // Count by status
       switch (message.status) {
         case MessageStatus.SENT:
           messageBreakdown.sent++;
           successfulMessages++;
+          costBreakdown.sent += this.calculateMessageCost(
+            message.pricing,
+            message.status,
+          );
           break;
         case MessageStatus.DELIVERED:
           messageBreakdown.delivered++;
           successfulMessages++;
+          deliveredMessages++;
+          costBreakdown.delivered += this.calculateMessageCost(
+            message.pricing,
+            message.status,
+          );
+
+          // Calculate response time if delivered
+          if (message.delivered_at) {
+            const responseTime =
+              new Date(message.delivered_at).getTime() -
+              new Date(message.created_at).getTime();
+            responseTimes.push(responseTime);
+          }
           break;
         case MessageStatus.READ:
           messageBreakdown.read++;
           successfulMessages++;
+          deliveredMessages++;
+          readMessages++;
+          costBreakdown.read += this.calculateMessageCost(
+            message.pricing,
+            message.status,
+          );
+
+          // Calculate response time if read
+          if (message.read_at) {
+            const responseTime =
+              new Date(message.read_at).getTime() -
+              new Date(message.created_at).getTime();
+            responseTimes.push(responseTime);
+          }
           break;
         case MessageStatus.FAILED:
           messageBreakdown.failed++;
+          failedMessages++;
+          costBreakdown.failed += this.calculateMessageCost(
+            message.pricing,
+            message.status,
+          );
           break;
       }
+    }
 
-      // Track last message sent
-      if (message.status !== MessageStatus.FAILED && !lastMessageSent) {
-        lastMessageSent = message.created_at.toISOString();
-      }
+    // Calculate average response time in minutes
+    const averageResponseTime =
+      responseTimes.length > 0
+        ? responseTimes.reduce((sum, time) => sum + time, 0) /
+          responseTimes.length /
+          (1000 * 60) // Convert to minutes
+        : null;
 
-      // Calculate response time (time between sent and delivered/read)
-      if (message.delivered_at || message.read_at) {
-        const responseTime = message.delivered_at || message.read_at;
-        if (responseTime) {
-          const sentTime = message.created_at;
-          const responseTimeMs = responseTime.getTime() - sentTime.getTime();
-          if (responseTimeMs > 0) {
-            totalResponseTime += responseTimeMs;
-            responseTimeCount++;
-          }
-        }
-      }
-
-      // Calculate costs based on pricing information
-      const cost = Number(this.calculateMessageCost(message.pricing, message.status));
-      switch (message.status) {
-        case MessageStatus.SENT:
-          costBreakdown.sent += cost;
-          break;
-        case MessageStatus.DELIVERED:
-          costBreakdown.delivered += cost;
-          break;
-        case MessageStatus.READ:
-          costBreakdown.read += cost;
-          break;
-        case MessageStatus.FAILED:
-          costBreakdown.failed += cost;
-          break;
-      }
-    });
-
-    // Calculate average response time
-    const averageResponseTime = responseTimeCount > 0 
-      ? Math.round(totalResponseTime / responseTimeCount) 
-      : null;
-
-
+    // Get last message sent
+    const lastMessage = messages.length > 0 ? messages[0] : null;
 
     return {
       totalMessages: messages.length,
       successfulMessages,
-      failedMessages: messageBreakdown.failed,
-      deliveredMessages: messageBreakdown.delivered,
-      readMessages: messageBreakdown.read,
-      lastMessageSent,
+      failedMessages,
+      deliveredMessages,
+      readMessages,
+      lastMessageSent: lastMessage ? lastMessage.created_at.toISOString() : null,
       averageResponseTime,
       messageBreakdown,
       costBreakdown,
+    };
+  }
+
+  /**
+   * Get all phone numbers with their stats for a company
+   */
+  async getAllPhoneNumberStats(
+    companyId: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    totalPhoneNumbers: number;
+    phoneNumbers: Array<{
+      phoneNumber: string;
+      totalMessages: number;
+      successfulMessages: number;
+      failedMessages: number;
+      deliveredMessages: number;
+      readMessages: number;
+      templateMessages: number;
+      lastMessageSent: string | null;
+      averageResponseTime: number | null;
+      totalCost: number;
+      messageBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+      costBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+    }>;
+    totalStats: {
+      totalMessages: number;
+      successfulMessages: number;
+      failedMessages: number;
+      deliveredMessages: number;
+      readMessages: number;
+      templateMessages: number;
+      totalCost: number;
+      messageBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+      costBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+    };
+  }> {
+    // Create dates and add 6 hours using timestamp arithmetic
+    const localeStartDate = startDate ? new Date(startDate + 'T00:00:00') : null;
+    const localeEndDate = endDate ? new Date(endDate + 'T23:59:59') : null;
+    
+    if (localeStartDate) {
+      localeStartDate.setTime(localeStartDate.getTime());
+    }
+    if (localeEndDate) {
+      localeEndDate.setTime(localeEndDate.getTime());
+    }
+
+    // Build date filter
+    const dateFilter: any = {};
+    if (startDate && endDate) {
+      dateFilter.created_at = {
+        [Op.gte]: localeStartDate,
+        [Op.lte]: localeEndDate,
+      };
+    } else if (startDate) {
+      dateFilter.created_at = {
+        [Op.gte]: localeStartDate,
+      };
+    } else if (endDate) {
+      dateFilter.created_at = {
+        [Op.lte]: localeEndDate,
+      };
+    }
+
+    // Get all messages for the company grouped by phone number
+    const messages = await this.messageModel.findAll({
+      where: {
+        company_id: companyId,
+        ...dateFilter,
+      },
+      attributes: ['to_phone_number', 'status', 'pricing', 'created_at', 'delivered_at', 'read_at', 'template_name'],
+      order: [['created_at', 'DESC']],
+    });
+
+    // Group messages by phone number
+    const phoneNumberGroups: { [phoneNumber: string]: any[] } = {};
+    for (const message of messages) {
+      if (!phoneNumberGroups[message.to_phone_number]) {
+        phoneNumberGroups[message.to_phone_number] = [];
+      }
+      phoneNumberGroups[message.to_phone_number].push(message);
+    }
+
+    const phoneNumberStats = [];
+    let totalStats = {
+      totalMessages: 0,
+      successfulMessages: 0,
+      failedMessages: 0,
+      deliveredMessages: 0,
+      readMessages: 0,
+      templateMessages: 0,
+      totalCost: 0,
+      messageBreakdown: {
+        sent: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0,
+      },
+      costBreakdown: {
+        sent: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0,
+      },
+    };
+
+    // Calculate stats for each phone number
+    for (const [phoneNumber, phoneMessages] of Object.entries(phoneNumberGroups)) {
+      const messageBreakdown = {
+        sent: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0,
+        accepted: 0,
+      };
+
+      const costBreakdown = {
+        sent: 0,
+        delivered: 0,
+        read: 0,
+        failed: 0,
+      };
+
+      let successfulMessages = 0;
+      let failedMessages = 0;
+      let deliveredMessages = 0;
+      let readMessages = 0;
+      let templateMessages = 0;
+      const responseTimes: number[] = [];
+
+      for (const message of phoneMessages) {
+        // Count template messages
+        if (message.template_name && message.template_name.trim() !== '') {
+          templateMessages++;
+        }
+
+        // Count by status
+        switch (message.status) {
+          case MessageStatus.SENT:
+            messageBreakdown.sent++;
+            successfulMessages++;
+            costBreakdown.sent += this.calculateMessageCost(
+              message.pricing,
+              message.status,
+            );
+            break;
+          case MessageStatus.DELIVERED:
+            messageBreakdown.delivered++;
+            successfulMessages++;
+            deliveredMessages++;
+            costBreakdown.delivered += this.calculateMessageCost(
+              message.pricing,
+              message.status,
+            );
+
+            if (message.delivered_at) {
+              const responseTime =
+                new Date(message.delivered_at).getTime() -
+                new Date(message.created_at).getTime();
+              responseTimes.push(responseTime);
+            }
+            break;
+          case MessageStatus.READ:
+            messageBreakdown.read++;
+            successfulMessages++;
+            deliveredMessages++;
+            readMessages++;
+            costBreakdown.read += this.calculateMessageCost(
+              message.pricing,
+              message.status,
+            );
+
+            if (message.read_at) {
+              const responseTime =
+                new Date(message.read_at).getTime() -
+                new Date(message.created_at).getTime();
+              responseTimes.push(responseTime);
+            }
+            break;
+          case MessageStatus.ACCEPTED:
+              messageBreakdown.accepted++;
+              successfulMessages++;
+              deliveredMessages++;
+              readMessages++;
+              costBreakdown.read += this.calculateMessageCost(
+                message.pricing,
+                message.status,
+              );
+  
+              if (message.read_at) {
+                const responseTime =
+                  new Date(message.read_at).getTime() -
+                  new Date(message.created_at).getTime();
+                responseTimes.push(responseTime);
+              }
+              break;
+          case MessageStatus.FAILED:
+            messageBreakdown.failed++;
+            failedMessages++;
+            costBreakdown.failed += this.calculateMessageCost(
+              message.pricing,
+              message.status,
+            );
+            break;
+        }
+      }
+
+      const totalCost =
+        costBreakdown.sent +
+        costBreakdown.delivered +
+        costBreakdown.read +
+        costBreakdown.failed;
+
+      const averageResponseTime =
+        responseTimes.length > 0
+          ? responseTimes.reduce((sum, time) => sum + time, 0) /
+            responseTimes.length /
+            (1000 * 60) // Convert to minutes
+          : null;
+
+      const lastMessage = phoneMessages.length > 0 ? phoneMessages[0] : null;
+
+      phoneNumberStats.push({
+        phoneNumber,
+        totalMessages: phoneMessages.length,
+        successfulMessages,
+        failedMessages,
+        deliveredMessages,
+        readMessages,
+        templateMessages,
+        lastMessageSent: lastMessage ? lastMessage.created_at.toISOString() : null,
+        averageResponseTime,
+        totalCost,
+        messageBreakdown,
+        costBreakdown,
+      });
+
+      // Add to total stats
+      totalStats.totalMessages += phoneMessages.length;
+      totalStats.successfulMessages += successfulMessages;
+      totalStats.failedMessages += failedMessages;
+      totalStats.deliveredMessages += deliveredMessages;
+      totalStats.readMessages += readMessages;
+      totalStats.templateMessages += templateMessages;
+      totalStats.totalCost += totalCost;
+      totalStats.messageBreakdown.sent += messageBreakdown.sent;
+      totalStats.messageBreakdown.delivered += messageBreakdown.delivered;
+      totalStats.messageBreakdown.read += messageBreakdown.read;
+      totalStats.messageBreakdown.failed += messageBreakdown.failed;
+      totalStats.costBreakdown.sent += costBreakdown.sent;
+      totalStats.costBreakdown.delivered += costBreakdown.delivered;
+      totalStats.costBreakdown.read += costBreakdown.read;
+      totalStats.costBreakdown.failed += costBreakdown.failed;
+    }
+
+    // Sort phone numbers by total messages descending
+    phoneNumberStats.sort((a, b) => b.totalMessages - a.totalMessages);
+
+    return {
+      totalPhoneNumbers: phoneNumberStats.length,
+      phoneNumbers: phoneNumberStats,
+      totalStats,
     };
   }
 }

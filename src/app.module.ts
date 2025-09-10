@@ -4,6 +4,7 @@ import {
   MiddlewareConsumer,
   RequestMethod,
 } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from './config';
@@ -17,6 +18,7 @@ import { ApiKeyMiddleware } from './middleware/api-key.middleware';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule,
     HttpClientModule,
     DatabaseModule,

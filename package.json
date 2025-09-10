@@ -29,7 +29,8 @@
     "company:list": "node scripts/manage-companies.js list",
     "company:update": "node scripts/manage-companies.js update",
     "company:delete": "node scripts/manage-companies.js delete",
-    "company:test": "node scripts/manage-companies.js test"
+    "company:test": "node scripts/manage-companies.js test",
+    "test:cron-expiry": "node scripts/test-cron-expiry.js"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.3",
@@ -37,6 +38,7 @@
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/schedule": "^6.0.0",
     "@nestjs/sequelize": "^10.0.0",
     "axios": "^1.11.0",
     "axios-retry": "^4.5.0",

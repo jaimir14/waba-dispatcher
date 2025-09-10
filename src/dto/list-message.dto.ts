@@ -30,7 +30,7 @@ export class SendListMessageDto {
   listName: string;
   
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   date: string;
 
   @IsString()
@@ -45,6 +45,11 @@ export class SendListMessageDto {
   @IsOptional()
   @IsString()
   customMessage?: string; // Optional custom message to append
+
+  @IsString()
+  @IsOptional()
+  ownerName?: string;
+
 }
 
 export class SendListMessageResponseDto {

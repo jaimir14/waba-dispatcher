@@ -91,3 +91,74 @@ export class PhoneNumberStatsResponseDto {
   message: string;
   data?: PhoneNumberStatsDto;
 }
+
+export class GetAllPhoneNumberStatsDto {
+  @IsOptional()
+  @IsString()
+  startDate?: string; // Format: "YYYY-MM-DD"
+
+  @IsOptional()
+  @IsString()
+  endDate?: string; // Format: "YYYY-MM-DD"
+}
+
+export class AllPhoneNumberStatsDto {
+  companyName: string;
+  totalPhoneNumbers: number;
+  totalStats: {
+    totalMessages: number;
+    successfulMessages: number;
+    failedMessages: number;
+    deliveredMessages: number;
+    readMessages: number;
+    templateMessages: number;
+    totalCost: number;
+    messageBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+    costBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  };
+  phoneNumbers: Array<{
+    phoneNumber: string;
+    totalMessages: number;
+    successfulMessages: number;
+    failedMessages: number;
+    deliveredMessages: number;
+    readMessages: number;
+    templateMessages: number;
+    lastMessageSent: string | null;
+    averageResponseTime: number | null;
+    totalCost: number;
+    messageBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+    costBreakdown: {
+      sent: number;
+      delivered: number;
+      read: number;
+      failed: number;
+    };
+  }>;
+  currency: string;
+  period: {
+    startDate: string | 'all';
+    endDate: string | 'all';
+  };
+}
+
+export class AllPhoneNumberStatsResponseDto {
+  status: 'success' | 'failed';
+  message: string;
+  data?: AllPhoneNumberStatsDto;
+}

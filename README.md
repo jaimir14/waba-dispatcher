@@ -85,34 +85,86 @@ npm run start:prod
 ## API Endpoints
 
 ### Health Check
+
 - `GET /health` - Application health status
 
 ### WhatsApp Connection Test
+
 - `GET /test-whatsapp` - Test WhatsApp API connection
 
 ### Messages
+
 - `POST /messages/send` - Send template messages to multiple recipients
 - `GET /messages/stats/:phoneNumber` - Get statistics for a specific phone number
 
+### Message Statistics
+
+- `GET /message-stats/by-month` - Get message statistics by month for a company
+- `GET /message-stats/all-phone-numbers` - Get statistics for all phone numbers in a company
+
 ### Conversations
+
 - `POST /conversations/start` - Start a conversation with template
 - `POST /conversations/send-text` - Send text message to confirmed conversation
 - `GET /conversations/get` - Get conversation status
+- `POST /conversations/trigger-expiry-check` - Manually trigger conversation expiry check (testing)
+- `POST /conversations/test-window-status` - Test WhatsApp conversation window status check (testing)
 
 ### Webhooks
+
 - `GET /webhook` - WhatsApp webhook verification
 - `POST /webhook` - WhatsApp webhook notifications
+
+## Automated Conversation Expiry Management
+
+The system includes an automated cron job that handles conversation expiration and template resending:
+
+### Cron Job Schedule
+
+- **Schedule**: Every day at 8:00 AM
+- **Timezone**: America/Mexico_City (configurable)
+
+### Logic
+
+1. **Identifies expired conversations**: Finds conversations that expire today or expired yesterday
+2. **Excludes old rejections**: Conversations expired more than 2 days ago are considered user rejections and are skipped
+3. **Validates conversation window**: Uses WhatsApp Business API health status endpoint to check if messaging is available
+4. **Sends template**: If window is inactive, sends the `inicio_conversacion` template to reactivate the conversation
+
+### Manual Testing
+
+```bash
+# Test the cron job functionality
+npm run test:cron-expiry
+
+# Or make a direct API call
+curl -X POST http://localhost:3000/conversations/trigger-expiry-check \
+  -H "X-API-Key: your_api_key"
+```
+
+### Configuration
+
+The cron job can be configured by modifying the `@Cron` decorator in `src/conversation/conversation-expiry.service.ts`:
+
+```typescript
+@Cron('0 8 * * *', {
+  name: 'conversation-expiry-check',
+  timeZone: 'America/Mexico_City', // Adjust timezone as needed
+})
+```
 
 ## Phone Number Statistics
 
 The phone number statistics endpoint provides detailed insights into message performance for specific phone numbers.
 
 ### Endpoint
+
 ```
 GET /messages/stats/:phoneNumber
 ```
 
 ### Parameters
+
 - **Path Parameters:**
   - `phoneNumber` (required): The phone number to get statistics for (e.g., +50688776655)
 
@@ -164,7 +216,7 @@ GET /messages/stats/+50688776655?startDate=2024-01-01
       "sent": 0.917,
       "delivered": 0.718,
       "read": 0.199,
-      "failed": 0.000
+      "failed": 0.0
     }
   }
 }
@@ -209,6 +261,7 @@ The system automatically sets default pricing for all new messages based on envi
 ## Authentication
 
 All endpoints require a company API key in the header:
+
 ```
 X-API-Key: your_company_api_key
 ```

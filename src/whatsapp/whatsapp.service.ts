@@ -872,9 +872,6 @@ export class WhatsAppService {
       totalAmount = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
     }
 
-    // Format the message
-    const formattedMessage = this.formatListMessage(sendListMessageDto, totalAmount);
-
     const results: Array<{
       recipient: string;
       status: 'sent' | 'failed';
@@ -1032,6 +1029,7 @@ export class WhatsAppService {
               normalTotal,
               reventadosTotal,
             }),
+            ownerName: sendListMessageDto.ownerName,
           },
         });
         this.logger.log(`List ${sendListMessageDto.listId} created/updated with pending status for conversation ${conversation.id}`);
@@ -1126,7 +1124,7 @@ export class WhatsAppService {
     sendListMessageDto: SendListMessageDto,
     totalAmount: number,
   ): string {
-    const { listName, reporter, numbers, customMessage, date } = sendListMessageDto;
+    const { listName, reporter, numbers, customMessage } = sendListMessageDto;
 
     // Check if this is a reventados format
     const hasReventados = numbers.some(item => item.reventadoAmount !== undefined);
@@ -1136,7 +1134,7 @@ export class WhatsAppService {
 
     if (hasReventados) {
       // Reventados format
-      message = `*Lista: ${listName} - ${date}*
+      message = `*Lista: ${listName}*
 A nombre de: ${reporter}
 
 \`\`\``;
@@ -1475,6 +1473,110 @@ A nombre de: ${reporter}
   }
 
   /**
+   * Get statistics for all phone numbers in a company
+   */
+  async getAllPhoneNumberStats(
+    companyName: string,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    companyName: string;
+    totalPhoneNumbers: number;
+    totalStats: {
+      totalMessages: number;
+      successfulMessages: number;
+      failedMessages: number;
+      deliveredMessages: number;
+      readMessages: number;
+      templateMessages: number;
+      totalCost: number;
+      messageBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+      costBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+    };
+    phoneNumbers: Array<{
+      phoneNumber: string;
+      totalMessages: number;
+      successfulMessages: number;
+      failedMessages: number;
+      deliveredMessages: number;
+      readMessages: number;
+      templateMessages: number;
+      lastMessageSent: string | null;
+      averageResponseTime: number | null;
+      totalCost: number;
+      messageBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+      costBreakdown: {
+        sent: number;
+        delivered: number;
+        read: number;
+        failed: number;
+      };
+    }>;
+    currency: string;
+    period: {
+      startDate: string | 'all';
+      endDate: string | 'all';
+    };
+  }> {
+    this.logger.log(
+      `Getting all phone number stats for company ${companyName}`,
+    );
+
+    // Get company by name first
+    const company = await this.companyRepository.findByName(companyName);
+    if (!company) {
+      throw new BadRequestException(`Company ${companyName} not found`);
+    }
+
+    // Validate date formats if provided
+    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      throw new BadRequestException(
+        'Start date must be in format YYYY-MM-DD (e.g., 2024-01-01)',
+      );
+    }
+
+    if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      throw new BadRequestException(
+        'End date must be in format YYYY-MM-DD (e.g., 2024-01-01)',
+      );
+    }
+
+    // Get statistics from repository
+    const stats = await this.messageRepository.getAllPhoneNumberStats(
+      company.id,
+      startDate,
+      endDate,
+    );
+
+    return {
+      companyName,
+      totalPhoneNumbers: stats.totalPhoneNumbers,
+      totalStats: stats.totalStats,
+      phoneNumbers: stats.phoneNumbers,
+      currency: 'USD',
+      period: {
+        startDate: startDate || 'all',
+        endDate: endDate || 'all',
+      },
+    };
+  }
+
+  /**
    * Send informational message to multiple recipients
    * This method bypasses conversation requirements and sends directly
    */
@@ -1584,5 +1686,71 @@ A nombre de: ${reporter}
       message,
       results,
     };
+  }
+
+  /**
+   * Check if WhatsApp conversation window is active by validating health status
+   */
+  async checkConversationWindowStatus(
+    companyName: string,
+    phoneNumber: string,
+  ): Promise<{
+    isActive: boolean;
+    canSendMessage: string;
+    status: string;
+    message: string;
+  }> {
+    try {
+      this.logger.log(
+        `Checking conversation window status for ${phoneNumber} in company ${companyName}`,
+      );
+
+      // Get company credentials
+      const company = await this.companyRepository.findByName(companyName);
+      if (!company) {
+        throw new BadRequestException(`Company ${companyName} not found`);
+      }
+
+      if (!company.isActive) {
+        throw new BadRequestException(`Company ${companyName} is not active`);
+      }
+
+      const phoneNumberId = company.settings?.metaPhoneNumberId || 
+        this.configService.metaPhoneNumberId;
+
+      // Call WhatsApp API to check health status
+      const healthResponse = await this.httpService.getPhoneNumberHealthStatus(phoneNumberId);
+      
+      const healthData = healthResponse.data;
+      const canSendMessage = healthData.health_status?.can_send_message || 'UNKNOWN';
+      
+      // Determine if messaging is available
+      const isActive = canSendMessage === 'AVAILABLE';
+      
+      this.logger.log(
+        `Conversation window status for ${phoneNumber}: ${canSendMessage} (Active: ${isActive})`,
+      );
+
+      return {
+        isActive,
+        canSendMessage,
+        status: 'success',
+        message: `Health status retrieved successfully: ${canSendMessage}`,
+      };
+
+    } catch (error) {
+      this.logger.error(
+        `Error checking conversation window status for ${phoneNumber}: ${error.message}`,
+        error.stack,
+      );
+
+      // If we can't determine the status, err on the side of caution
+      return {
+        isActive: false,
+        canSendMessage: 'ERROR',
+        status: 'error',
+        message: `Failed to check conversation window status: ${error.message}`,
+      };
+    }
   }
 }

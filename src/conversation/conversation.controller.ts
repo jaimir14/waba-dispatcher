@@ -13,6 +13,7 @@ import {
 import { Request } from 'express';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { ConversationService } from './conversation.service';
+import { ConversationExpiryService } from './conversation-expiry.service';
 import {
   StartConversationDto,
   StartConversationResponseDto,
@@ -29,6 +30,7 @@ export class ConversationController {
   constructor(
     private readonly whatsappService: WhatsAppService,
     private readonly conversationService: ConversationService,
+    private readonly conversationExpiryService: ConversationExpiryService,
   ) {}
 
   @Post('start')
@@ -139,5 +141,32 @@ export class ConversationController {
         isExpiringSoon: false, // Default to not expiring if error
       };
     }
+  }
+
+  /**
+   * Manually trigger conversation expiry check (for testing)
+   */
+  @Post('trigger-expiry-check')
+  async triggerExpiryCheck(): Promise<{
+    status: string;
+    message: string;
+  }> {
+    return this.conversationExpiryService.triggerExpiryCheck();
+  }
+
+  /**
+   * Test WhatsApp conversation window status check (for testing)
+   */
+  @Post('test-window-status')
+  async testWindowStatus(@Body() body: { phoneNumber: string; companyName: string }): Promise<{
+    status: string;
+    isActive: boolean;
+    canSendMessage: string;
+    message: string;
+  }> {
+    return this.whatsappService.checkConversationWindowStatus(
+      body.companyName,
+      body.phoneNumber,
+    );
   }
 }

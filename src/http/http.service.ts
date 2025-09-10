@@ -160,6 +160,21 @@ export class HttpService {
     return this.axiosInstance.get(url, config);
   }
 
+  /**
+   * Check WhatsApp Business phone number health status
+   */
+  async getPhoneNumberHealthStatus(phoneNumberId: string): Promise<AxiosResponse> {
+    const url = `/${phoneNumberId}`;
+    const config: AxiosRequestConfig = {
+      params: {
+        access_token: this.configService.metaAccessToken,
+        fields: 'health_status',
+      },
+    };
+
+    return this.axiosInstance.get(url, config);
+  }
+
   async verifyWebhook(
     mode: string,
     token: string,
