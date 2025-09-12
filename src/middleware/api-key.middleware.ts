@@ -4,13 +4,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { ConfigService } from '../config';
+import { CompanyRepository } from '../database/repositories/company.repository';
 
 @Injectable()
 export class ApiKeyMiddleware implements NestMiddleware {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly companyRepository: CompanyRepository) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
+  async use(req: Request, res: Response, next: NextFunction) {
     const apiKey = req.headers['x-api-key'] as string;
 
     if (!apiKey) {
@@ -25,8 +25,9 @@ export class ApiKeyMiddleware implements NestMiddleware {
     // Extract company ID from API key (assuming format: companyId_hash)
     const companyId = this.extractCompanyId(apiKey);
 
+    const company = await this.companyRepository.findByApiKey(apiKey);
     // Add company context to request
-    (req as any).companyId = companyId;
+    (req as any).companyId = company.name;
     (req as any).apiKey = apiKey;
 
     next();
@@ -39,7 +40,8 @@ export class ApiKeyMiddleware implements NestMiddleware {
 
   private extractCompanyId(apiKey: string): string {
     // Extract company ID from API key (first part before underscore)
-    const parts = apiKey.split('_');
-    return parts[0] || 'unknown';
+    const parts: string[] = apiKey.split('_');
+    parts.slice(0, -1);
+    return parts.join('_') || 'unknown';
   }
 }
