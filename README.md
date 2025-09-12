@@ -115,6 +115,19 @@ npm run start:prod
 - `GET /webhook` - WhatsApp webhook verification
 - `POST /webhook` - WhatsApp webhook notifications
 
+### Company Management
+
+- `POST /companies` - Create a new company
+- `GET /companies` - Get all companies (with filtering and sorting)
+- `GET /companies/:id` - Get company by ID
+- `PUT /companies/:id` - Update company
+- `DELETE /companies/:id` - Delete company (soft delete)
+- `PATCH /companies/:id/activate` - Activate company
+- `PATCH /companies/:id/deactivate` - Deactivate company
+- `PATCH /companies/:id/status` - Update company status
+- `PATCH /companies/:id/restore` - Restore soft deleted company
+- `DELETE /companies/:id/permanent` - Permanently delete company
+
 ## Automated Conversation Expiry Management
 
 The system includes an automated cron job that handles conversation expiration and template resending:
@@ -260,10 +273,99 @@ The system automatically sets default pricing for all new messages based on envi
 
 ## Authentication
 
+### Regular Endpoints
+
 All endpoints require a company API key in the header:
 
 ```
 X-API-Key: your_company_api_key
+```
+
+### Company Management Endpoints
+
+Company management endpoints require an admin API key:
+
+```
+X-Admin-Key: your_admin_api_key
+```
+
+Set the admin key in your environment:
+
+```bash
+ADMIN_API_KEY=your_super_secret_admin_key
+```
+
+## Company Management API Examples
+
+### Create Company
+
+```bash
+curl -X POST http://localhost:3000/companies \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: your_admin_key" \
+  -d '{
+    "name": "MyCompany",
+    "isActive": true,
+    "settings": {
+      "metaPhoneNumberId": "123456789"
+    }
+  }'
+```
+
+### Get All Companies
+
+```bash
+# Get active companies only
+curl -X GET "http://localhost:3000/companies?search=MyCompany&isActive=true&sortBy=name&sortOrder=ASC" \
+  -H "X-Admin-Key: your_admin_key"
+
+# Get all companies including soft deleted
+curl -X GET "http://localhost:3000/companies?includeDeleted=true" \
+  -H "X-Admin-Key: your_admin_key"
+```
+
+### Activate/Deactivate Company
+
+```bash
+# Activate
+curl -X PATCH http://localhost:3000/companies/{id}/activate \
+  -H "X-Admin-Key: your_admin_key"
+
+# Deactivate
+curl -X PATCH http://localhost:3000/companies/{id}/deactivate \
+  -H "X-Admin-Key: your_admin_key"
+
+# Update Status
+curl -X PATCH http://localhost:3000/companies/{id}/status \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: your_admin_key" \
+  -d '{"isActive": false}'
+```
+
+### Update Company
+
+```bash
+curl -X PUT http://localhost:3000/companies/{id} \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Key: your_admin_key" \
+  -d '{
+    "name": "UpdatedCompanyName",
+    "settings": {
+      "metaPhoneNumberId": "987654321"
+    }
+  }'
+```
+
+### Restore and Permanent Delete
+
+```bash
+# Restore a soft deleted company
+curl -X PATCH http://localhost:3000/companies/{id}/restore \
+  -H "X-Admin-Key: your_admin_key"
+
+# Permanently delete a company (irreversible)
+curl -X DELETE http://localhost:3000/companies/{id}/permanent \
+  -H "X-Admin-Key: your_admin_key"
 ```
 
 ## Testing

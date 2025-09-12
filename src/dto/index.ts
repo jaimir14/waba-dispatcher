@@ -7,3 +7,4 @@ export * from './message-stats.dto';
 export * from './list-message.dto';
 export * from './message-query.dto';
 export * from './list.dto';
+export * from './company.dto';

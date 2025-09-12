@@ -30,7 +30,8 @@
     "company:update": "node scripts/manage-companies.js update",
     "company:delete": "node scripts/manage-companies.js delete",
     "company:test": "node scripts/manage-companies.js test",
-    "test:cron-expiry": "node scripts/test-cron-expiry.js"
+    "test:cron-expiry": "node scripts/test-cron-expiry.js",
+    "test:company-api": "node scripts/test-company-api.js"
   },
   "dependencies": {
     "@nestjs/bull": "^11.0.3",

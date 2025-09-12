@@ -5,6 +5,7 @@ import {
   DataType,
   CreatedAt,
   UpdatedAt,
+  DeletedAt,
   Index,
 } from 'sequelize-typescript';
 
@@ -12,6 +13,7 @@ import {
   tableName: 'companies',
   timestamps: true,
   underscored: true,
+  paranoid: true, // Enable soft delete
 })
 export class Company extends Model {
   @Column({
@@ -53,4 +55,7 @@ export class Company extends Model {
 
   @UpdatedAt
   updatedAt: Date;
+
+  @DeletedAt
+  deletedAt?: Date;
 }
