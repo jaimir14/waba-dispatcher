@@ -97,4 +97,34 @@ export class Conversation extends Model {
 
   @UpdatedAt
   updated_at: Date;
+
+  /**
+   * Check if the conversation session has expired
+   * @returns true if the session has expired, false otherwise
+   */
+  isExpired(): boolean {
+    if (!this.session_expires_at) {
+      // If no expiration time is set, consider it expired
+      return true;
+    }
+    
+    const now = new Date();
+    return this.session_expires_at <= now;
+  }
+
+  /**
+   * Check if the conversation session will expire within a given number of hours
+   * @param hours - Number of hours to check ahead (default: 4)
+   * @returns true if the session will expire within the specified hours
+   */
+  isExpiringSoon(hours: number = 4): boolean {
+    if (!this.session_expires_at) {
+      // If no expiration time is set, consider it expiring soon
+      return true;
+    }
+    
+    const now = new Date();
+    const thresholdTime = new Date(now.getTime() + (hours * 60 * 60 * 1000));
+    return this.session_expires_at <= thresholdTime;
+  }
 }

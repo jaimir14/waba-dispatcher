@@ -49,6 +49,7 @@ export class AppModule implements NestModule {
         { path: 'webhook/health', method: RequestMethod.GET },
         { path: 'companies', method: RequestMethod.ALL },
         { path: 'companies/(.*)', method: RequestMethod.ALL },
+        { path: 'conversations/trigger-expiry-check', method: RequestMethod.POST },
       )
       .forRoutes('*');
   }

@@ -851,8 +851,12 @@ export class WhatsAppService {
       },
     });
 
-    if(conversation && conversation.current_step === 'welcome') {
+    if(!conversation || conversation?.current_step === 'welcome') {
       throw new BadRequestException(`Conversation ${conversation.id} is not accepted`);
+    }
+
+    if(conversation?.isExpired()) {
+      throw new BadRequestException(`Conversation ${conversation.id} is expired`);
     }
 
     // Calculate totals
@@ -1686,71 +1690,5 @@ A nombre de: ${reporter}
       message,
       results,
     };
-  }
-
-  /**
-   * Check if WhatsApp conversation window is active by validating health status
-   */
-  async checkConversationWindowStatus(
-    companyName: string,
-    phoneNumber: string,
-  ): Promise<{
-    isActive: boolean;
-    canSendMessage: string;
-    status: string;
-    message: string;
-  }> {
-    try {
-      this.logger.log(
-        `Checking conversation window status for ${phoneNumber} in company ${companyName}`,
-      );
-
-      // Get company credentials
-      const company = await this.companyRepository.findByName(companyName);
-      if (!company) {
-        throw new BadRequestException(`Company ${companyName} not found`);
-      }
-
-      if (!company.isActive) {
-        throw new BadRequestException(`Company ${companyName} is not active`);
-      }
-
-      const phoneNumberId = company.settings?.metaPhoneNumberId || 
-        this.configService.metaPhoneNumberId;
-
-      // Call WhatsApp API to check health status
-      const healthResponse = await this.httpService.getPhoneNumberHealthStatus(phoneNumberId);
-      
-      const healthData = healthResponse.data;
-      const canSendMessage = healthData.health_status?.can_send_message || 'UNKNOWN';
-      
-      // Determine if messaging is available
-      const isActive = canSendMessage === 'AVAILABLE';
-      
-      this.logger.log(
-        `Conversation window status for ${phoneNumber}: ${canSendMessage} (Active: ${isActive})`,
-      );
-
-      return {
-        isActive,
-        canSendMessage,
-        status: 'success',
-        message: `Health status retrieved successfully: ${canSendMessage}`,
-      };
-
-    } catch (error) {
-      this.logger.error(
-        `Error checking conversation window status for ${phoneNumber}: ${error.message}`,
-        error.stack,
-      );
-
-      // If we can't determine the status, err on the side of caution
-      return {
-        isActive: false,
-        canSendMessage: 'ERROR',
-        status: 'error',
-        message: `Failed to check conversation window status: ${error.message}`,
-      };
-    }
   }
 }

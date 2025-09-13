@@ -154,19 +154,4 @@ export class ConversationController {
     return this.conversationExpiryService.triggerExpiryCheck();
   }
 
-  /**
-   * Test WhatsApp conversation window status check (for testing)
-   */
-  @Post('test-window-status')
-  async testWindowStatus(@Body() body: { phoneNumber: string; companyName: string }): Promise<{
-    status: string;
-    isActive: boolean;
-    canSendMessage: string;
-    message: string;
-  }> {
-    return this.whatsappService.checkConversationWindowStatus(
-      body.companyName,
-      body.phoneNumber,
-    );
-  }
 }

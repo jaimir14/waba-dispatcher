@@ -72,22 +72,24 @@ export class ConversationExpiryService {
       let successCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
+      const processedPhoneNumbers = new Set<string>();
 
       for (const conversation of expiringConversations) {
         try {
-          // Check if the conversation window is still active with WhatsApp
-          const isWindowActive = await this.isConversationWindowActive(
-            conversation.phone_number,
-            conversation.company.name,
-          );
 
-          if (isWindowActive) {
+          if(process.env.NODE_ENV != 'production') {
+            console.log("SENDING MESSAGE", conversation.phone_number, conversation.company.name);
+          }
+
+          if(processedPhoneNumbers.has(conversation.phone_number)) {
             this.logger.log(
-              `Conversation ${conversation.id} for ${conversation.phone_number} still has active window, skipping template send`,
+              `Conversation ${conversation.id} for ${conversation.phone_number} already processed, skipping`,
             );
             skippedCount++;
             continue;
           }
+
+          processedPhoneNumbers.add(conversation.phone_number);
 
           // Send inicio_conversacion template
           const templateResult = await this.whatsappService.startConversation(
@@ -128,68 +130,6 @@ export class ConversationExpiryService {
         'Error during conversation expiry check',
         error.stack,
       );
-    }
-  }
-
-  /**
-   * Check if a conversation window is still active with WhatsApp
-   * Uses WhatsApp Business API to validate messaging status
-   */
-  private async isConversationWindowActive(
-    phoneNumber: string,
-    companyName: string,
-  ): Promise<boolean> {
-    try {
-      // First check our local conversation status
-      const conversation = await this.conversationModel.findOne({
-        include: [
-          {
-            model: Company,
-            as: 'company',
-            where: { name: companyName },
-          },
-        ],
-        where: {
-          phone_number: phoneNumber,
-          is_active: true,
-        },
-      });
-
-      if (!conversation || !conversation.session_expires_at) {
-        this.logger.log(
-          `No local conversation found for ${phoneNumber}, assuming window is inactive`,
-        );
-        return false;
-      }
-
-      const now = new Date();
-      const expiresAt = new Date(conversation.session_expires_at);
-
-      // If session has already expired locally, don't bother checking WhatsApp API
-      if (expiresAt <= now) {
-        this.logger.log(
-          `Conversation for ${phoneNumber} expired locally at ${expiresAt.toISOString()}, window is inactive`,
-        );
-        return false;
-      }
-
-      // Check with WhatsApp API to validate messaging capability
-      const windowStatus = await this.whatsappService.checkConversationWindowStatus(
-        companyName,
-        phoneNumber,
-      );
-
-      this.logger.log(
-        `WhatsApp API check for ${phoneNumber}: ${windowStatus.canSendMessage} (Active: ${windowStatus.isActive})`,
-      );
-
-      return windowStatus.isActive;
-    } catch (error) {
-      this.logger.error(
-        `Error checking conversation window status for ${phoneNumber}: ${error.message}`,
-      );
-      // If we can't determine status, assume it's inactive to be safe
-      return false;
     }
   }
 

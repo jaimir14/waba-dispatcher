@@ -43,7 +43,7 @@ export class ConversationService {
     );
 
     // Update session expiration to 24 hours from now (any message extends the session)
-    await this.conversationRepository.updateSessionExpiration(conversation.id);
+    await this.conversationRepository.updateSessionExpiration(phoneNumber);
 
     if(isReaction) {
       messageText = 'reaction';

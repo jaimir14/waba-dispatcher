@@ -156,7 +156,7 @@ export class ConversationRepository {
   /**
    * Update session expiration to 24 hours from now
    */
-  async updateSessionExpiration(conversationId: string): Promise<void> {
+  async updateSessionExpiration(phoneNumber: string): Promise<void> {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
@@ -166,7 +166,7 @@ export class ConversationRepository {
         last_message_at: new Date(),
       },
       {
-        where: { id: conversationId },
+        where: { phone_number: phoneNumber},
       },
     );
   }
