@@ -59,7 +59,7 @@ export class ConversationExpiryService {
           },
         },
       };
-      console.log(JSON.stringify(findClause, null, 2));
+      console.log('DATES', today, twoDaysAgo);
       // Find conversations that:
       // 1. Expire today (session_expires_at between start of today and end of today)
       // 2. Expired yesterday (session_expires_at between start of yesterday and end of yesterday)
