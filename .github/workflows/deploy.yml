@@ -34,8 +34,24 @@ jobs:
         run: |
           ssh -i ~/.ssh/github_actions_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
             cd ${{ secrets.DEPLOY_PATH }}
-            source ~/.bashrc
-            nvm use 18
+            
+            # Install Node.js 18 if not available
+            if ! command -v node &> /dev/null || [[ "$(node --version | cut -d'v' -f2 | cut -d'.' -f1)" -lt 18 ]]; then
+              echo "Installing Node.js 18..."
+              curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+              sudo apt-get install -y nodejs
+            fi
+            
+            # Verify Node.js version
+            echo "Node.js version: $(node --version)"
+            echo "npm version: $(npm --version)"
+            
+            # Configure Git SSH
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/github_actions_key 2>/dev/null || echo "No SSH key found in ~/.ssh/github_actions_key"
+            
+            # Clean install
+            rm -rf node_modules package-lock.json
             git pull origin main
             npm install
             npm run build
