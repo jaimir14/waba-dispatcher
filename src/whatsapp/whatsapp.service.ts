@@ -1109,6 +1109,9 @@ export class WhatsAppService {
       const responseData = response.data;
       const whatsappMessage = responseData.messages[0];
 
+      console.log('SENDING RESPONSE**********************************');
+      console.log('RESPONSE DATA', JSON.stringify(responseData, null, 2));
+
       await this.messageRepository.updateWhatsAppId(
         message.id,
         whatsappMessage.id,
