@@ -520,6 +520,7 @@ export class WhatsAppService {
   async startConversation(
     companyName: string,
     startConversationDto: StartConversationDto,
+    force: boolean = false,
   ): Promise<StartConversationResponseDto> {
     this.logger.log(
       `Starting conversation with ${startConversationDto.to} for company ${companyName}`,
@@ -542,7 +543,7 @@ export class WhatsAppService {
       4, // 4 hours threshold
     );
 
-    if (!isExpiringSoon) {
+    if (!isExpiringSoon && !force) {
       this.logger.log(
         `Session for ${startConversationDto.to} is not expiring soon, skipping template message`,
       );
@@ -577,7 +578,7 @@ export class WhatsAppService {
     });
 
     await this.conversationRepository.updateStep(conversation[0].id, 'welcome');
-    
+
     // Create template message DTO
     const createMessageDto = new CreateTemplateMessageDto();
     createMessageDto.to = startConversationDto.to;
@@ -851,29 +852,44 @@ export class WhatsAppService {
       },
     });
 
-    if(!conversation || conversation?.current_step === 'welcome') {
-      throw new BadRequestException(`Conversation ${conversation.id} is not accepted`);
+    if (!conversation || conversation?.current_step === 'welcome') {
+      throw new BadRequestException(
+        `Conversation ${conversation.id} is not accepted`,
+      );
     }
 
-    if(conversation?.isExpired()) {
-      throw new BadRequestException(`Conversation ${conversation.id} is expired`);
+    if (conversation?.isExpired()) {
+      throw new BadRequestException(
+        `Conversation ${conversation.id} is expired`,
+      );
     }
 
     // Calculate totals
-    const hasReventados = sendListMessageDto.numbers.some(item => item.reventadoAmount !== undefined);
-    
+    const hasReventados = sendListMessageDto.numbers.some(
+      item => item.reventadoAmount !== undefined,
+    );
+
     let totalAmount = 0;
     let normalTotal = 0;
     let reventadosTotal = 0;
 
     if (hasReventados) {
       // Calculate separate totals for reventados format
-      normalTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
-      reventadosTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + (item.reventadoAmount || 0), 0);
+      normalTotal = sendListMessageDto.numbers.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
+      reventadosTotal = sendListMessageDto.numbers.reduce(
+        (sum, item) => sum + (item.reventadoAmount || 0),
+        0,
+      );
       totalAmount = normalTotal + reventadosTotal;
     } else {
       // Regular format
-      totalAmount = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
+      totalAmount = sendListMessageDto.numbers.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
     }
 
     const results: Array<{
@@ -898,8 +914,10 @@ export class WhatsAppService {
 
     try {
       await this.queueService.addBulkListMessageJobs(queueJobs);
-      this.logger.log(`Added ${queueJobs.length} list message jobs to queue for list ${sendListMessageDto.listId}`);
-      
+      this.logger.log(
+        `Added ${queueJobs.length} list message jobs to queue for list ${sendListMessageDto.listId}`,
+      );
+
       // Return success with queued status
       sendListMessageDto.recipients.forEach(recipient => {
         results.push({
@@ -913,7 +931,7 @@ export class WhatsAppService {
       failureCount = 0;
     } catch (error) {
       this.logger.error(`Failed to queue list message jobs: ${error.message}`);
-      
+
       // Return failed for all recipients if queueing fails
       sendListMessageDto.recipients.forEach(recipient => {
         results.push({
@@ -981,24 +999,38 @@ export class WhatsAppService {
     }
 
     // Calculate totals
-    const hasReventados = sendListMessageDto.numbers.some(item => item.reventadoAmount !== undefined);
-    
+    const hasReventados = sendListMessageDto.numbers.some(
+      item => item.reventadoAmount !== undefined,
+    );
+
     let totalAmount = 0;
     let normalTotal = 0;
     let reventadosTotal = 0;
 
     if (hasReventados) {
       // Calculate separate totals for reventados format
-      normalTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
-      reventadosTotal = sendListMessageDto.numbers.reduce((sum, item) => sum + (item.reventadoAmount || 0), 0);
+      normalTotal = sendListMessageDto.numbers.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
+      reventadosTotal = sendListMessageDto.numbers.reduce(
+        (sum, item) => sum + (item.reventadoAmount || 0),
+        0,
+      );
       totalAmount = normalTotal + reventadosTotal;
     } else {
       // Regular format
-      totalAmount = sendListMessageDto.numbers.reduce((sum, item) => sum + item.amount, 0);
+      totalAmount = sendListMessageDto.numbers.reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
     }
 
     // Format the message
-    const formattedMessage = this.formatListMessage(sendListMessageDto, totalAmount);
+    const formattedMessage = this.formatListMessage(
+      sendListMessageDto,
+      totalAmount,
+    );
 
     try {
       // Check if conversation exists and is accepted
@@ -1036,9 +1068,13 @@ export class WhatsAppService {
             ownerName: sendListMessageDto.ownerName,
           },
         });
-        this.logger.log(`List ${sendListMessageDto.listId} created/updated with pending status for conversation ${conversation.id}`);
+        this.logger.log(
+          `List ${sendListMessageDto.listId} created/updated with pending status for conversation ${conversation.id}`,
+        );
       } catch (error) {
-        this.logger.error(`Failed to create/update list ${sendListMessageDto.listId}: ${error.message}`);
+        this.logger.error(
+          `Failed to create/update list ${sendListMessageDto.listId}: ${error.message}`,
+        );
         // Continue with message sending even if list creation fails
       }
 
@@ -1072,23 +1108,28 @@ export class WhatsAppService {
       // Update message with WhatsApp ID and mark as sent
       const responseData = response.data;
       const whatsappMessage = responseData.messages[0];
-      
+
       await this.messageRepository.updateWhatsAppId(
         message.id,
         whatsappMessage.id,
       );
       await this.messageRepository.updateStatus(message.id, MessageStatus.SENT);
-      
+
       // Capture pricing information if available
       if (whatsappMessage.pricing) {
         await this.messageRepository.updatePricing(message.id, {
-          cost: whatsappMessage.pricing.billable ? whatsappMessage.pricing.billable * 0.001 : this.configService.whatsappCostPerMessage,
+          cost: whatsappMessage.pricing.billable
+            ? whatsappMessage.pricing.billable * 0.001
+            : this.configService.whatsappCostPerMessage,
           currency: 'USD',
         });
       }
 
       // Mark conversation as waiting for response
-      await this.conversationService.markAsWaitingResponse(recipient, companyName);
+      await this.conversationService.markAsWaitingResponse(
+        recipient,
+        companyName,
+      );
 
       this.logger.log(`List message sent successfully to ${recipient}`);
       return {
@@ -1102,7 +1143,10 @@ export class WhatsAppService {
       );
 
       // Find the message record to mark it as failed
-      const messages = await this.messageRepository.findByListId(sendListMessageDto.listId, company.id);
+      const messages = await this.messageRepository.findByListId(
+        sendListMessageDto.listId,
+        company.id,
+      );
       const message = messages.find(m => m.to_phone_number === recipient);
 
       if (message) {
@@ -1131,7 +1175,9 @@ export class WhatsAppService {
     const { listName, reporter, numbers, customMessage } = sendListMessageDto;
 
     // Check if this is a reventados format
-    const hasReventados = numbers.some(item => item.reventadoAmount !== undefined);
+    const hasReventados = numbers.some(
+      item => item.reventadoAmount !== undefined,
+    );
 
     let message = '';
     let numberLines = '';
@@ -1145,14 +1191,19 @@ A nombre de: ${reporter}
 
       numberLines = numbers
         .map(({ number, amount, reventadoAmount }) => {
-          const reventadoPart = reventadoAmount ? `, R = ₡${reventadoAmount.toLocaleString()}` : '';
+          const reventadoPart = reventadoAmount
+            ? `, R = ₡${reventadoAmount.toLocaleString()}`
+            : '';
           return `⁠ ${number.padStart(2, '0')} = ₡${amount.toLocaleString()}${reventadoPart}, ⁠`;
         })
         .join('\n');
 
       // Calculate separate totals
       const normalTotal = numbers.reduce((sum, item) => sum + item.amount, 0);
-      const reventadosTotal = numbers.reduce((sum, item) => sum + (item.reventadoAmount || 0), 0);
+      const reventadosTotal = numbers.reduce(
+        (sum, item) => sum + (item.reventadoAmount || 0),
+        0,
+      );
 
       message += `\n${numberLines}\n\`\`\`\n\nNormal: ₡${normalTotal.toLocaleString()}\nReventados: ₡${reventadosTotal.toLocaleString()}\n\nTotal: ₡${totalAmount.toLocaleString()}`;
     } else {
@@ -1163,7 +1214,10 @@ A nombre de: ${reporter}
 \`\`\``;
 
       numberLines = numbers
-        .map(({ number, amount }) => `${number.padStart(2, '0')} = ₡${amount.toLocaleString()},`)
+        .map(
+          ({ number, amount }) =>
+            `${number.padStart(2, '0')} = ₡${amount.toLocaleString()},`,
+        )
         .join('\n');
 
       message += `\n${numberLines}\n\`\`\`\n\n*Total: ₡${totalAmount.toLocaleString()}*`;
@@ -1174,7 +1228,8 @@ A nombre de: ${reporter}
       message += `\n\n${customMessage}`;
     }
 
-    message +='\n\nPara aceptar la lista, por favor responder con la palabra OK';
+    message +=
+      '\n\nPara aceptar la lista, por favor responder con la palabra OK';
     return message;
   }
 
@@ -1228,16 +1283,19 @@ A nombre de: ${reporter}
     );
 
     // Get list data for messages that have list_id
-    const listIds = [...new Set(messages.filter(m => m.list_id).map(m => m.list_id))];
+    const listIds = [
+      ...new Set(messages.filter(m => m.list_id).map(m => m.list_id)),
+    ];
     const listsData = await Promise.all(
-      listIds.map(async (listId) => {
+      listIds.map(async listId => {
         const listMessages = messages.filter(m => m.list_id === listId);
         const list = await this.listsService.getListById(listId);
-        
+
         // Extract draw category information from list metadata
-        const drawCategoryName = list?.metadata?.drawCategoryName || 'Sin categoría';
+        const drawCategoryName =
+          list?.metadata?.drawCategoryName || 'Sin categoría';
         const drawCategoryId = list?.metadata?.drawCategoryId || null;
-        
+
         return {
           list_id: listId,
           status: list?.status || 'unknown',
@@ -1245,7 +1303,7 @@ A nombre de: ${reporter}
           drawCategoryName,
           drawCategoryId,
         };
-      })
+      }),
     );
 
     // Calculate status breakdown
@@ -1257,7 +1315,7 @@ A nombre de: ${reporter}
       failed: 0,
     };
 
-    messages.forEach((message) => {
+    messages.forEach(message => {
       switch (message.status) {
         case MessageStatus.PENDING:
           statusBreakdown.pending++;
@@ -1278,7 +1336,7 @@ A nombre de: ${reporter}
     });
 
     // Transform messages to DTO format
-    const messageDetails: MessageDetailDto[] = messages.map((message) => ({
+    const messageDetails: MessageDetailDto[] = messages.map(message => ({
       id: message.id,
       whatsappMessageId: message.whatsapp_message_id,
       toPhoneNumber: message.to_phone_number,
@@ -1641,7 +1699,10 @@ A nombre de: ${reporter}
           message.id,
           responseData.messages[0].id,
         );
-        await this.messageRepository.updateStatus(message.id, MessageStatus.SENT);
+        await this.messageRepository.updateStatus(
+          message.id,
+          MessageStatus.SENT,
+        );
 
         this.logger.log(
           `Informational message ${message.id} sent successfully to ${recipient}. WhatsApp ID: ${responseData.messages[0].id}`,

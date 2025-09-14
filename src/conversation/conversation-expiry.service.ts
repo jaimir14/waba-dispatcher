@@ -41,12 +41,7 @@ export class ConversationExpiryService {
       twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
       twoDaysAgo.setHours(23, 59, 59, 999);
 
-      // Find conversations that:
-      // 1. Expire today (session_expires_at between start of today and end of today)
-      // 2. Expired yesterday (session_expires_at between start of yesterday and end of yesterday)
-      // 3. Are still active
-      // 4. Did not expire more than 2 days ago (user rejection threshold)
-      const expiringConversations = await this.conversationModel.findAll({
+      const findClause = {
         include: [
           {
             model: Company,
@@ -63,7 +58,15 @@ export class ConversationExpiryService {
             ],
           },
         },
-      });
+      };
+      console.log(findClause);
+      // Find conversations that:
+      // 1. Expire today (session_expires_at between start of today and end of today)
+      // 2. Expired yesterday (session_expires_at between start of yesterday and end of yesterday)
+      // 3. Are still active
+      // 4. Did not expire more than 2 days ago (user rejection threshold)
+      const expiringConversations =
+        await this.conversationModel.findAll(findClause);
 
       this.logger.log(
         `Found ${expiringConversations.length} conversations eligible for renewal`,
@@ -76,12 +79,15 @@ export class ConversationExpiryService {
 
       for (const conversation of expiringConversations) {
         try {
-
-          if(process.env.NODE_ENV != 'production') {
-            console.log("SENDING MESSAGE", conversation.phone_number, conversation.company.name);
+          if (process.env.NODE_ENV != 'production') {
+            console.log(
+              'SENDING MESSAGE',
+              conversation.phone_number,
+              conversation.company.name,
+            );
           }
 
-          if(processedPhoneNumbers.has(conversation.phone_number)) {
+          if (processedPhoneNumbers.has(conversation.phone_number)) {
             this.logger.log(
               `Conversation ${conversation.id} for ${conversation.phone_number} already processed, skipping`,
             );
@@ -100,6 +106,7 @@ export class ConversationExpiryService {
               parameters: [conversation.company.name], // Default parameter
               language: conversation.context?.language || 'es',
             },
+            true,
           );
 
           if (templateResult.status === 'success') {
@@ -126,10 +133,7 @@ export class ConversationExpiryService {
         `Conversation expiry check completed. Success: ${successCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`,
       );
     } catch (error) {
-      this.logger.error(
-        'Error during conversation expiry check',
-        error.stack,
-      );
+      this.logger.error('Error during conversation expiry check', error.stack);
     }
   }
 
@@ -141,7 +145,7 @@ export class ConversationExpiryService {
     message: string;
   }> {
     this.logger.log('Manually triggering conversation expiry check...');
-    
+
     try {
       await this.handleConversationExpiry();
       return {
@@ -156,4 +160,4 @@ export class ConversationExpiryService {
       };
     }
   }
-} 
+}
