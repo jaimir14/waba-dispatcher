@@ -852,7 +852,13 @@ export class WhatsAppService {
       },
     });
 
-    if (!conversation || conversation?.current_step === 'welcome') {
+    if (!conversation) {
+      throw new BadRequestException(
+        `Conversation to ${sendListMessageDto.recipients[0]} not found`,
+      );
+    }
+
+    if (conversation?.current_step === 'welcome') {
       throw new BadRequestException(
         `Conversation ${conversation.id} is not accepted`,
       );
