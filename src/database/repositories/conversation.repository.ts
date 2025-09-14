@@ -158,7 +158,7 @@ export class ConversationRepository {
    */
   async updateSessionExpiration(phoneNumber: string): Promise<void> {
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24 + 6); // 6 hours more than 24 hours because of the timezone difference
+    expiresAt.setHours(expiresAt.getHours() + 24);
 
     await Conversation.update(
       {
