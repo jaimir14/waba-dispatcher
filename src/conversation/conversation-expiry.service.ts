@@ -78,6 +78,11 @@ export class ConversationExpiryService {
       const processedPhoneNumbers = new Set<string>();
 
       for (const conversation of expiringConversations) {
+        console.log(
+          'PHONE NUMBER',
+          conversation.phone_number,
+          conversation.company.name,
+        );
         try {
           if (process.env.NODE_ENV != 'production') {
             console.log(
