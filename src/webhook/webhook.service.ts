@@ -102,7 +102,7 @@ export class WebhookService {
       });
 
       // Process incoming message for conversation flow
-      if (['text', 'reaction'].includes(message.type) && (message.text?.body || message.reaction?.emoji)) {
+      if (['text', 'reaction', 'button'].includes(message.type) && (message.text?.body || message.reaction?.emoji)) {
         // Queue incoming message processing
         await this.webhookQueueService.addWebhookJob({
           type: 'incoming-message',
@@ -437,11 +437,16 @@ export class WebhookService {
         );
       }
 
-      // Process the incoming message for conversation flow
-      const messageText = message.type === 'reaction' 
-        ? message.reaction?.emoji || 'reaction'
-        : message.text?.body || '';
-        
+
+      let messageText = '';
+      if(message.type === 'button') {
+        messageText = message.button?.text || '';
+      } else if(message.type === 'reaction') {
+        messageText = message.reaction?.emoji || 'reaction';
+      } else {
+        messageText = message.text?.body || '';
+      }
+
       await this.conversationService.processIncomingMessage(
         message.from,
         companyName,
