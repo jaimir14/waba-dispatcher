@@ -101,8 +101,11 @@ export class WebhookService {
         type: message.type,
       });
 
+      //Verify that there is a message text from body, reaction or button
+      const hasMessageText = message.text?.body || message.reaction?.emoji || message.button?.text;
+
       // Process incoming message for conversation flow
-      if (['text', 'reaction', 'button'].includes(message.type) && (message.text?.body || message.reaction?.emoji)) {
+      if (['text', 'reaction', 'button'].includes(message.type) && hasMessageText) {
         // Queue incoming message processing
         await this.webhookQueueService.addWebhookJob({
           type: 'incoming-message',
