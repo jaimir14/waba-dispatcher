@@ -191,6 +191,14 @@ export class ConversationService {
       'perfecto',
       'entendido',
       'reaction',
+      'aceptar',
+      'aceptada',
+      'aceptadas',
+      'aceptados',
+      'correcto',
+      'correcta',
+      'correctas',
+      'correctos',
     ];
     return affirmativeWords.includes(text);
   }
