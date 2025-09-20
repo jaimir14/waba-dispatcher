@@ -34,14 +34,6 @@ export class ConversationExpiryService {
       // Now plus 4 hours
       fourHoursFromNow.setHours(fourHoursFromNow.getHours() + 4);
 
-      const yesterdayEnd = new Date(now);
-      yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
-      yesterdayEnd.setHours(23, 59, 59, 999); // End of yesterday
-
-      const twoDaysAgo = new Date(now);
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-      twoDaysAgo.setHours(23, 59, 59, 999);
-
       const findClause = {
         include: [
           {
@@ -56,11 +48,10 @@ export class ConversationExpiryService {
             [Op.not]: 'welcome',
           },
           session_expires_at: {
-            [Op.and]: [{ [Op.lte]: fourHoursFromNow }, { [Op.gt]: twoDaysAgo }],
+            [Op.and]: [{ [Op.lte]: fourHoursFromNow }, { [Op.gt]: now }],
           },
         },
       };
-      console.log('DATES', fourHoursFromNow, twoDaysAgo);
       // Find conversations that:
       // 1. Expire today (session_expires_at between start of today and end of today)
       // 2. Expired yesterday (session_expires_at between start of yesterday and end of yesterday)
@@ -148,6 +139,132 @@ export class ConversationExpiryService {
   }
 
   /**
+   * Cron job that runs daily at 8:00 AM
+   * Checks for conversations that have expired within the last 24 hours
+   * and sends inicio_conversacion template to re-engage users
+   */
+  @Cron('0 8 * * *', {
+    name: 'daily-conversation-renewal',
+    timeZone: 'America/Mexico_City',
+  })
+  async handleDailyConversationRenewal(): Promise<void> {
+    this.logger.log('Starting daily conversation renewal check...');
+
+    try {
+      const now = new Date();
+      const twentyFourHoursAgo = new Date(now);
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+      const findClause = {
+        include: [
+          {
+            model: Company,
+            as: 'company',
+            where: { is_active: true },
+          },
+        ],
+        where: {
+          is_active: true,
+          current_step: {
+            [Op.not]: 'welcome',
+          },
+          session_expires_at: {
+            [Op.and]: [
+              { [Op.lte]: now }, // Already expired
+              { [Op.gte]: twentyFourHoursAgo }, // But not more than 24 hours ago
+            ],
+          },
+        },
+      };
+
+      this.logger.log(
+        `Looking for conversations expired between ${twentyFourHoursAgo.toISOString()} and ${now.toISOString()}`,
+      );
+
+      // Find conversations that:
+      // 1. Have expired (session_expires_at <= now)
+      // 2. But not more than 24 hours ago (session_expires_at >= 24 hours ago)
+      // 3. Are still active
+      // 4. Are not in welcome step
+      const expiredConversations =
+        await this.conversationModel.findAll(findClause);
+
+      this.logger.log(
+        `Found ${expiredConversations.length} conversations eligible for daily renewal`,
+      );
+
+      let successCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+      const processedPhoneNumbers = new Set<string>();
+
+      for (const conversation of expiredConversations) {
+        try {
+          if (process.env.NODE_ENV != 'production') {
+            console.log(
+              'SENDING DAILY RENEWAL MESSAGE',
+              conversation.phone_number,
+              conversation.company.name,
+              'Expired at:',
+              conversation.session_expires_at,
+            );
+          }
+
+          if (processedPhoneNumbers.has(conversation.phone_number)) {
+            this.logger.log(
+              `Conversation ${conversation.id} for ${conversation.phone_number} already processed, skipping`,
+            );
+            skippedCount++;
+            continue;
+          }
+
+          processedPhoneNumbers.add(conversation.phone_number);
+
+          // Send inicio_conversacion template
+          const templateResult = await this.whatsappService.startConversation(
+            conversation.company.name,
+            {
+              to: conversation.phone_number,
+              templateName: 'inicio_conversacion',
+              parameters: [conversation.company.name], // Default parameter
+              language: conversation.context?.language || 'es',
+            },
+            true,
+          );
+
+          if (templateResult.status === 'success') {
+            this.logger.log(
+              `Successfully sent inicio_conversacion template to ${conversation.phone_number} for conversation ${conversation.id}`,
+            );
+            successCount++;
+          } else {
+            this.logger.warn(
+              `Template send was skipped for ${conversation.phone_number}: ${templateResult.message}`,
+            );
+            skippedCount++;
+          }
+        } catch (error) {
+          this.logger.error(
+            `Error processing conversation ${conversation.id} for ${conversation.phone_number}: ${error.message}`,
+            error.stack,
+          );
+          errorCount++;
+        }
+      }
+
+      this.logger.log(
+        `Daily conversation renewal completed. Success: ${successCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        'Error during daily conversation renewal check',
+        error.message,
+        error.stack,
+      );
+    }
+  }
+
+  /**
    * Manual method to trigger conversation expiry check (for testing)
    */
   async triggerExpiryCheck(): Promise<{
@@ -167,6 +284,30 @@ export class ConversationExpiryService {
       return {
         status: 'error',
         message: `Expiry check failed: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Manual method to trigger daily conversation renewal (for testing)
+   */
+  async triggerDailyRenewal(): Promise<{
+    status: string;
+    message: string;
+  }> {
+    this.logger.log('Manually triggering daily conversation renewal...');
+
+    try {
+      await this.handleDailyConversationRenewal();
+      return {
+        status: 'success',
+        message: 'Daily conversation renewal completed successfully',
+      };
+    } catch (error) {
+      this.logger.error('Manual daily renewal failed', error.stack);
+      return {
+        status: 'error',
+        message: `Daily renewal failed: ${error.message}`,
       };
     }
   }
