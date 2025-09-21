@@ -870,13 +870,14 @@ export class WhatsAppService {
           `Conversation to ${sendListMessageDto.recipients[0]} not found`,
         );
       } else {
-        const newConversation = {
-          ...conversationValidation,
+        conversation = await this.conversationModel.create({
           company_id: company.id,
-        };
-        console.log('NEW CONVERSATION', newConversation);
-        console.log('conversationValidation', conversationValidation);
-        conversation = await this.conversationModel.create(newConversation);
+          phone_number: sendListMessageDto.recipients[0],
+          current_step: conversationValidation.current_step,
+          context: conversationValidation.context,
+          last_message_at: conversationValidation.last_message_at,
+          is_active: true,
+        });
       }
     }
 
@@ -1089,11 +1090,14 @@ export class WhatsAppService {
           };
         }
 
-        const newConversation = {
-          ...conversationValidation,
+        conversation = await this.conversationModel.create({
           company_id: company.id,
-        };
-        conversation = await this.conversationModel.create(newConversation);
+          phone_number: sendListMessageDto.recipients[0],
+          current_step: conversationValidation.current_step,
+          context: conversationValidation.context,
+          last_message_at: conversationValidation.last_message_at,
+          is_active: true,
+        });
       }
 
       // Create or update list with pending status
