@@ -865,6 +865,9 @@ export class WhatsAppService {
           session_expires_at: {
             [Op.gt]: new Date(),
           },
+          current_step: {
+            [Op.notIn]: ['welcome', 'rejected'],
+          },
         },
       });
 
@@ -885,9 +888,26 @@ export class WhatsAppService {
     }
 
     if (conversation?.current_step === 'welcome') {
-      throw new BadRequestException(
-        `Conversation ${conversation.id} is not accepted`,
-      );
+      const conversationValidation = await this.conversationModel.findOne({
+        where: {
+          phone_number: sendListMessageDto.recipients[0],
+          is_active: true,
+          session_expires_at: {
+            [Op.gt]: new Date(),
+          },
+          current_step: {
+            [Op.notIn]: ['welcome', 'rejected'],
+          },
+        },
+      });
+      if (!conversationValidation) {
+        throw new BadRequestException(
+          `Conversation ${conversation.id} is not accepted`,
+        );
+      } else {
+        conversation.current_step = conversationValidation.current_step;
+        await conversation.save();
+      }
     }
 
     if (conversation?.isExpired()) {
