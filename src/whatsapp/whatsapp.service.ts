@@ -874,6 +874,8 @@ export class WhatsAppService {
           ...conversationValidation,
           company_id: company.id,
         };
+        console.log('NEW CONVERSATION', newConversation);
+        console.log('conversationValidation', conversationValidation);
         conversation = await this.conversationModel.create(newConversation);
       }
     }
