@@ -45,7 +45,7 @@ export class ConversationService {
     // Update session expiration to 24 hours from now (any message extends the session)
     await this.conversationRepository.updateSessionExpiration(phoneNumber);
 
-    if(isReaction) {
+    if (isReaction) {
       messageText = 'reaction';
     }
     // Process the message based on conversation status
@@ -163,14 +163,15 @@ export class ConversationService {
   /**
    * Handle unknown conversation state
    */
-  private async handleUnknownState(
-    conversation: Conversation,
-  ): Promise<void> {
+  private async handleUnknownState(conversation: Conversation): Promise<void> {
     this.logger.warn(
       `Unknown conversation state "${conversation.current_step}" for ${conversation.phone_number}`,
     );
     // Reset to welcome state
-    await this.conversationRepository.updateStep(conversation.id, 'welcome');
+    await this.conversationRepository.updateStep(
+      conversation.phone_number,
+      'welcome',
+    );
   }
 
   /**
@@ -254,11 +255,15 @@ export class ConversationService {
 
     // Start session and mark as accepted
     await this.conversationRepository.startSession(conversation.id);
-    await this.conversationRepository.updateStep(conversation.id, 'accepted', {
-      ...conversation.context,
-      accepted: true,
-      acceptedAt: new Date().toISOString(),
-    });
+    await this.conversationRepository.updateStep(
+      conversation.phone_number,
+      'accepted',
+      {
+        ...conversation.context,
+        accepted: true,
+        acceptedAt: new Date().toISOString(),
+      },
+    );
 
     this.logger.log(`Conversation accepted for ${conversation.phone_number}`);
   }
@@ -269,7 +274,9 @@ export class ConversationService {
   private async handleReceivedResponse(
     conversation: Conversation,
   ): Promise<void> {
-    this.logger.log(`User ${conversation.phone_number} confirmed receipt with "Recibido"`);
+    this.logger.log(
+      `User ${conversation.phone_number} confirmed receipt with "Recibido"`,
+    );
 
     // Send acknowledgment
     await this.sendTextMessage(
@@ -280,10 +287,14 @@ export class ConversationService {
 
     // Mark as accepted and extend session
     await this.conversationRepository.updateSessionExpiration(conversation.id);
-    await this.conversationRepository.updateStep(conversation.id, 'accepted', {
-      ...conversation.context,
-      lastReceivedAt: new Date().toISOString(),
-    });
+    await this.conversationRepository.updateStep(
+      conversation.phone_number,
+      'accepted',
+      {
+        ...conversation.context,
+        lastReceivedAt: new Date().toISOString(),
+      },
+    );
 
     this.logger.log(`Receipt confirmed for ${conversation.phone_number}`);
   }
@@ -306,11 +317,15 @@ export class ConversationService {
     );
 
     // Update conversation step
-    await this.conversationRepository.updateStep(conversation.id, 'rejected', {
-      ...conversation.context,
-      rejected: true,
-      rejectedAt: new Date().toISOString(),
-    });
+    await this.conversationRepository.updateStep(
+      conversation.phone_number,
+      'rejected',
+      {
+        ...conversation.context,
+        rejected: true,
+        rejectedAt: new Date().toISOString(),
+      },
+    );
 
     this.logger.log(`Conversation rejected for ${conversation.phone_number}`);
   }
@@ -328,19 +343,26 @@ export class ConversationService {
       throw new Error(`Company ${companyName} not found`);
     }
 
-    const conversation = await this.conversationRepository.findByPhoneAndCompany(
-      phoneNumber,
-      company.id,
-    );
+    const conversation =
+      await this.conversationRepository.findByPhoneAndCompany(
+        phoneNumber,
+        company.id,
+      );
 
     if (conversation) {
-      await this.conversationRepository.updateStep(conversation.id, 'waiting_response', {
-        ...conversation.context,
-        waitingForResponse: true,
-        waitingStartedAt: new Date().toISOString(),
-      });
+      await this.conversationRepository.updateStep(
+        conversation.phone_number,
+        'waiting_response',
+        {
+          ...conversation.context,
+          waitingForResponse: true,
+          waitingStartedAt: new Date().toISOString(),
+        },
+      );
 
-      this.logger.log(`Marked conversation as waiting for response: ${phoneNumber}`);
+      this.logger.log(
+        `Marked conversation as waiting for response: ${phoneNumber}`,
+      );
     }
   }
 

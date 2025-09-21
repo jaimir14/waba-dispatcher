@@ -578,7 +578,10 @@ export class WhatsAppService {
       },
     });
 
-    await this.conversationRepository.updateStep(conversation[0].id, 'welcome');
+    await this.conversationRepository.updateStep(
+      conversation[0].phone_number,
+      'welcome',
+    );
 
     // Create template message DTO
     const createMessageDto = new CreateTemplateMessageDto();

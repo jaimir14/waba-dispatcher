@@ -63,7 +63,7 @@ export class ConversationRepository {
    * Update conversation step and context
    */
   async updateStep(
-    conversationId: string,
+    phoneNumber: string,
     step: string,
     context?: Record<string, any>,
   ): Promise<void> {
@@ -77,7 +77,7 @@ export class ConversationRepository {
     }
 
     await Conversation.update(updateData, {
-      where: { id: conversationId },
+      where: { phone_number: phoneNumber },
     });
   }
 
