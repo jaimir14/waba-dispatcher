@@ -18,7 +18,7 @@ export class MessageRepository {
     if (!data.pricing) {
       data.pricing = this.getDefaultPricing();
     }
-    
+
     return this.messageModel.create(data);
   }
 
@@ -42,8 +42,11 @@ export class MessageRepository {
     });
   }
 
-  async findByWhatsAppId(whatsappMessageId: string, companyId?: string): Promise<Message | null> {
-    const whereClause = companyId 
+  async findByWhatsAppId(
+    whatsappMessageId: string,
+    companyId?: string,
+  ): Promise<Message | null> {
+    const whereClause = companyId
       ? { whatsapp_message_id: whatsappMessageId, company_id: companyId }
       : { whatsapp_message_id: whatsappMessageId };
     return this.messageModel.findOne({
@@ -60,8 +63,11 @@ export class MessageRepository {
     });
   }
 
-  async findByPhoneNumber(phoneNumber: string, companyId?: string): Promise<Message[]> {
-    const whereClause = companyId 
+  async findByPhoneNumber(
+    phoneNumber: string,
+    companyId?: string,
+  ): Promise<Message[]> {
+    const whereClause = companyId
       ? { to_phone_number: phoneNumber, company_id: companyId }
       : { to_phone_number: phoneNumber };
     return this.messageModel.findAll({
@@ -72,7 +78,7 @@ export class MessageRepository {
   }
 
   async findByListId(listId: string, companyId?: string): Promise<Message[]> {
-    const whereClause = companyId 
+    const whereClause = companyId
       ? { list_id: listId, company_id: companyId }
       : { list_id: listId };
     return this.messageModel.findAll({
@@ -122,10 +128,7 @@ export class MessageRepository {
     );
   }
 
-  async updatePricing(
-    id: number,
-    pricing: any,
-  ): Promise<[number, Message[]]> {
+  async updatePricing(id: number, pricing: any): Promise<[number, Message[]]> {
     return this.messageModel.update(
       { pricing },
       {
@@ -294,7 +297,9 @@ export class MessageRepository {
       }
 
       // Calculate costs based on pricing information
-      const cost = Number(this.calculateMessageCost(message.pricing, message.status));
+      const cost = Number(
+        this.calculateMessageCost(message.pricing, message.status),
+      );
       switch (message.status) {
         case MessageStatus.SENT:
           costBreakdown.sent += cost;
@@ -331,7 +336,7 @@ export class MessageRepository {
     }
 
     // Default cost from environment
-    return this.configService.whatsappCostPerMessage;
+    return Number(this.configService.whatsappCostPerMessage);
   }
 
   /**
@@ -366,12 +371,12 @@ export class MessageRepository {
     // Create dates and add 6 hours using timestamp arithmetic
     const localeStartDate = new Date(startDate + 'T00:00:00');
     const localeEndDate = new Date(endDate + 'T23:59:59');
-    
+
     // Add 6 hours using timestamp arithmetic (this will properly handle day rollover)
     localeStartDate.setTime(localeStartDate.getTime());
     localeEndDate.setTime(localeEndDate.getTime());
-    
-    console.log('localeStartDate',  new Date(localeStartDate));
+
+    console.log('localeStartDate', new Date(localeStartDate));
     console.log('localeEndDate', new Date(localeEndDate));
     // Build date filter
     const dateFilter: any = {};
@@ -397,7 +402,13 @@ export class MessageRepository {
         to_phone_number: phoneNumber,
         ...dateFilter,
       },
-      attributes: ['status', 'pricing', 'created_at', 'delivered_at', 'read_at'],
+      attributes: [
+        'status',
+        'pricing',
+        'created_at',
+        'delivered_at',
+        'read_at',
+      ],
       order: [['created_at', 'DESC']],
     });
 
@@ -498,7 +509,9 @@ export class MessageRepository {
       failedMessages,
       deliveredMessages,
       readMessages,
-      lastMessageSent: lastMessage ? lastMessage.created_at.toISOString() : null,
+      lastMessageSent: lastMessage
+        ? lastMessage.created_at.toISOString()
+        : null,
       averageResponseTime,
       messageBreakdown,
       costBreakdown,
@@ -561,9 +574,11 @@ export class MessageRepository {
     };
   }> {
     // Create dates and add 6 hours using timestamp arithmetic
-    const localeStartDate = startDate ? new Date(startDate + 'T00:00:00') : null;
+    const localeStartDate = startDate
+      ? new Date(startDate + 'T00:00:00')
+      : null;
     const localeEndDate = endDate ? new Date(endDate + 'T23:59:59') : null;
-    
+
     if (localeStartDate) {
       localeStartDate.setTime(localeStartDate.getTime());
     }
@@ -594,7 +609,15 @@ export class MessageRepository {
         company_id: companyId,
         ...dateFilter,
       },
-      attributes: ['to_phone_number', 'status', 'pricing', 'created_at', 'delivered_at', 'read_at', 'template_name'],
+      attributes: [
+        'to_phone_number',
+        'status',
+        'pricing',
+        'created_at',
+        'delivered_at',
+        'read_at',
+        'template_name',
+      ],
       order: [['created_at', 'DESC']],
     });
 
@@ -631,7 +654,9 @@ export class MessageRepository {
     };
 
     // Calculate stats for each phone number
-    for (const [phoneNumber, phoneMessages] of Object.entries(phoneNumberGroups)) {
+    for (const [phoneNumber, phoneMessages] of Object.entries(
+      phoneNumberGroups,
+    )) {
       const messageBreakdown = {
         sent: 0,
         delivered: 0,
@@ -704,22 +729,22 @@ export class MessageRepository {
             }
             break;
           case MessageStatus.ACCEPTED:
-              messageBreakdown.accepted++;
-              successfulMessages++;
-              deliveredMessages++;
-              readMessages++;
-              costBreakdown.read += this.calculateMessageCost(
-                message.pricing,
-                message.status,
-              );
-  
-              if (message.read_at) {
-                const responseTime =
-                  new Date(message.read_at).getTime() -
-                  new Date(message.created_at).getTime();
-                responseTimes.push(responseTime);
-              }
-              break;
+            messageBreakdown.accepted++;
+            successfulMessages++;
+            deliveredMessages++;
+            readMessages++;
+            costBreakdown.read += this.calculateMessageCost(
+              message.pricing,
+              message.status,
+            );
+
+            if (message.read_at) {
+              const responseTime =
+                new Date(message.read_at).getTime() -
+                new Date(message.created_at).getTime();
+              responseTimes.push(responseTime);
+            }
+            break;
           case MessageStatus.FAILED:
             messageBreakdown.failed++;
             failedMessages++;
@@ -754,7 +779,9 @@ export class MessageRepository {
         deliveredMessages,
         readMessages,
         templateMessages,
-        lastMessageSent: lastMessage ? lastMessage.created_at.toISOString() : null,
+        lastMessageSent: lastMessage
+          ? lastMessage.created_at.toISOString()
+          : null,
         averageResponseTime,
         totalCost,
         messageBreakdown,
