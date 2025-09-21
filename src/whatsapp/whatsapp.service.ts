@@ -36,6 +36,7 @@ import { QueueService, WhatsAppSendJobData } from '../queue/queue.service';
 import { ConversationService } from '../conversation/conversation.service';
 import { ListsService } from '../lists/lists.service';
 import { ConversationRepository } from '../database/repositories/conversation.repository';
+import { Op } from 'sequelize';
 
 @Injectable()
 export class WhatsAppService {
@@ -844,7 +845,7 @@ export class WhatsAppService {
       throw new BadRequestException(`Company ${companyName} is not active`);
     }
 
-    const conversation = await this.conversationModel.findOne({
+    let conversation = await this.conversationModel.findOne({
       where: {
         company_id: company.id,
         phone_number: sendListMessageDto.recipients[0],
@@ -853,9 +854,28 @@ export class WhatsAppService {
     });
 
     if (!conversation) {
-      throw new BadRequestException(
-        `Conversation to ${sendListMessageDto.recipients[0]} not found`,
-      );
+      // If there is no conversation, validate if there is at least one row with the give telephone number that is active and not expired
+      const conversationValidation = await this.conversationModel.findOne({
+        where: {
+          phone_number: sendListMessageDto.recipients[0],
+          is_active: true,
+          session_expires_at: {
+            [Op.gt]: new Date(),
+          },
+        },
+      });
+
+      if (!conversationValidation) {
+        throw new BadRequestException(
+          `Conversation to ${sendListMessageDto.recipients[0]} not found`,
+        );
+      } else {
+        const newConversation = {
+          ...conversationValidation,
+          company_id: company.id,
+        };
+        conversation = await this.conversationModel.create(newConversation);
+      }
     }
 
     if (conversation?.current_step === 'welcome') {
@@ -1040,7 +1060,7 @@ export class WhatsAppService {
 
     try {
       // Check if conversation exists and is accepted
-      const conversation = await this.conversationModel.findOne({
+      let conversation = await this.conversationModel.findOne({
         where: {
           company_id: company.id,
           phone_number: recipient,
@@ -1049,11 +1069,29 @@ export class WhatsAppService {
       });
 
       if (!conversation || conversation.current_step === 'welcome') {
-        return {
-          recipient,
-          status: 'failed',
-          error: 'Conversation not accepted',
+        let conversationValidation = await this.conversationModel.findOne({
+          where: {
+            phone_number: recipient,
+            is_active: true,
+            session_expires_at: {
+              [Op.gt]: new Date(),
+            },
+          },
+        });
+
+        if (!conversationValidation) {
+          return {
+            recipient,
+            status: 'failed',
+            error: 'Conversation not accepted',
+          };
+        }
+
+        const newConversation = {
+          ...conversationValidation,
+          company_id: company.id,
         };
+        conversation = await this.conversationModel.create(newConversation);
       }
 
       // Create or update list with pending status
